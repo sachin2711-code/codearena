@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+dist/
+build/
+venv/
+env/
+.venv/
+
+# Environment & Secrets
+.env
+.env.local
+*.env
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Databases & local storage
+*.db
+*.sqlite
+*.sqlite3
+codearena.db
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
