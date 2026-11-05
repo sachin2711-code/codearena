@@ -8,6 +8,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Matchmaking } from './pages/Matchmaking';
 import { Battle } from './pages/Battle';
+import { CustomDuel } from './pages/CustomDuel';
 import { Leaderboard } from './pages/Leaderboard';
 import { MatchHistory } from './pages/MatchHistory';
 import { Profile } from './pages/Profile';
@@ -36,6 +37,8 @@ export const App: React.FC = () => {
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/matchmaking" element={<Matchmaking />} />
+              <Route path="/duel" element={<CustomDuel />} />
+              <Route path="/duel/:roomCode" element={<CustomDuel />} />
               <Route path="/battle" element={<Battle />} />
               <Route path="/history" element={<MatchHistory />} />
               <Route path="/profile" element={<Profile />} />

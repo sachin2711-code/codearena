@@ -59,15 +59,24 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Button */}
-        <button
-          onClick={() => navigate('/matchmaking')}
-          className="w-full md:w-auto px-6 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
-        >
-          <Swords className="w-4 h-4" />
-          <span>FIND 1V1 MATCH</span>
-          <ArrowRight className="w-3.5 h-3.5 ml-1" />
-        </button>
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+          <button
+            onClick={() => navigate('/duel')}
+            className="w-full sm:w-auto px-5 py-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2"
+          >
+            <span>CHALLENGE FRIEND</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/matchmaking')}
+            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
+          >
+            <Swords className="w-4 h-4" />
+            <span>FIND 1V1 MATCH</span>
+            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </button>
+        </div>
       </div>
 
       {/* Metrics Row */}
