@@ -102,13 +102,14 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
             await server.emit("queue_joined", {"status": "searching", "elo": elo}, to=sid)
 
             # Try to match immediately
-            opponent_id = await matchmaking_service.find_opponent(user_id, elo)
-            if opponent_id:
+            opponent_data = await matchmaking_service.find_opponent(user_id, elo)
+            if opponent_data:
+                opponent_uuid = uuid.UUID(opponent_data["user_id"])
                 # Found opponent! Create match in DB
-                match = await matchmaking_service.create_match(db, user_id, opponent_id)
+                match = await matchmaking_service.create_match(db, user_id, opponent_uuid)
                 if match:
                     room_name = f"match_{match.id}"
-                    opp_sid = user_to_sid.get(str(opponent_id))
+                    opp_sid = opponent_data.get("sid") or user_to_sid.get(str(opponent_uuid))
 
                     await server.enter_room(sid, room_name)
                     if opp_sid:
@@ -237,31 +238,31 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
             return
 
         async with async_session_maker() as db:
-            problem = await db.get(Problem, uuid.UUID(problem_id_str), options=[selectinload(Problem.test_cases)])
+            problem = await db.get(Problem, uuid.UUID(problem_id_str))
             if not problem:
                 return
 
-            sample_cases = [tc for tc in problem.test_cases if tc.is_sample]
-            results = []
-            for idx, tc in enumerate(sample_cases):
-                res = await judge_service.run_test_case(
-                    code=code,
-                    language=language,
-                    test_input=tc.input,
-                    expected_output=tc.expected_output,
-                    time_limit=problem.time_limit_seconds,
-                    memory_limit=problem.memory_limit_mb,
-                    test_index=idx,
-                )
-                results.append({
-                    "test_index": idx,
-                    "input": tc.input,
-                    "expected": tc.expected_output,
-                    "actual": res.actual_output,
-                    "passed": res.passed,
-                    "runtime_ms": res.runtime_ms,
-                    "error": res.error,
-                })
+            sample_results = await judge_service.run_sample_tests(
+                db=db,
+                code=code,
+                language=language,
+                problem_id=problem.id,
+                time_limit=problem.time_limit_seconds,
+                memory_limit=problem.memory_limit_mb,
+            )
+
+            results = [
+                {
+                    "test_index": r.test_index,
+                    "input": r.input,
+                    "expected": r.expected_output,
+                    "actual": r.actual_output,
+                    "passed": r.passed,
+                    "runtime_ms": r.runtime_ms,
+                    "error": r.error,
+                }
+                for r in sample_results
+            ]
 
             await server.emit("sample_test_results", {"results": results}, to=sid)
 

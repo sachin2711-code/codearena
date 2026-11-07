@@ -27,6 +27,10 @@ class GoogleLoginRequest(BaseModel):
     credential: str  # Google ID token
 
 
+class GitHubLoginRequest(BaseModel):
+    code: str
+
+
 class DevLoginRequest(BaseModel):
     username: str
     email: EmailStr
@@ -123,6 +127,96 @@ async def google_login(
             )
             db.add(user)
 
+        await db.commit()
+        await db.refresh(user)
+
+    token_data = {"sub": str(user.id), "username": user.username}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post("/github", response_model=TokenResponse)
+async def github_login(
+    payload: GitHubLoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Exchange GitHub OAuth authorization code for CodeArena JWT."""
+    if not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GitHub OAuth is not configured on the server",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            token_resp = await client.post(
+                "https://github.com/login/oauth/access_token",
+                headers={"Accept": "application/json"},
+                data={
+                    "client_id": settings.GITHUB_CLIENT_ID,
+                    "client_secret": settings.GITHUB_CLIENT_SECRET,
+                    "code": payload.code,
+                },
+            )
+            if token_resp.status_code != 200:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to obtain GitHub token")
+
+            token_json = token_resp.json()
+            gh_access_token = token_json.get("access_token")
+            if not gh_access_token:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=token_json.get("error_description", "Invalid GitHub code"))
+
+            user_resp = await client.get(
+                "https://api.github.com/user",
+                headers={"Authorization": f"Bearer {gh_access_token}", "User-Agent": "CodeArena-App"},
+            )
+            if user_resp.status_code != 200:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch GitHub profile")
+            gh_user = user_resp.json()
+
+            email = gh_user.get("email")
+            if not email:
+                emails_resp = await client.get(
+                    "https://api.github.com/user/emails",
+                    headers={"Authorization": f"Bearer {gh_access_token}", "User-Agent": "CodeArena-App"},
+                )
+                if emails_resp.status_code == 200:
+                    for em in emails_resp.json():
+                        if em.get("primary") and em.get("verified"):
+                            email = em.get("email")
+                            break
+
+            username = gh_user.get("login") or f"user_{uuid.uuid4().hex[:8]}"
+            email = email or f"{username}@users.noreply.github.com"
+            avatar = gh_user.get("avatar_url")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"GitHub OAuth error: {exc}")
+
+    stmt = select(User).where(User.email == email)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        user = User(
+            username=username[:50],
+            email=email,
+            avatar_url=avatar,
+            elo_rating=1200,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+    elif avatar and not user.avatar_url:
+        user.avatar_url = avatar
         await db.commit()
         await db.refresh(user)
 

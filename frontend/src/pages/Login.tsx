@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Terminal, User, Mail, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Terminal, User, Mail, ArrowRight, Github } from 'lucide-react';
 import { authApi } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
 
@@ -12,6 +12,24 @@ export const Login: React.FC = () => {
 
   const { login } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Handle GitHub OAuth callback if ?code= is in URL
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (code) {
+      setLoading(true);
+      authApi.githubLogin(code)
+        .then((data) => {
+          login(data.access_token, data.user);
+          navigate('/dashboard');
+        })
+        .catch((err) => {
+          setError(err?.response?.data?.detail || 'GitHub authentication failed');
+          setLoading(false);
+        });
+    }
+  }, [searchParams, login, navigate]);
 
   const handleDevLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +48,16 @@ export const Login: React.FC = () => {
     }
   };
 
+  const handleGitHubOAuth = () => {
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+    if (!clientId) {
+      setError('GitHub OAuth client ID is not configured. Use instant handle login below.');
+      return;
+    }
+    const redirectUri = window.location.origin + '/login';
+    window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`;
+  };
+
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-[#090a0f] flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-xl p-7 shadow-2xl relative">
@@ -46,6 +74,25 @@ export const Login: React.FC = () => {
             {error}
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={handleGitHubOAuth}
+          disabled={loading}
+          className="w-full mb-4 py-2.5 px-4 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-mono text-xs transition-colors flex items-center justify-center gap-2"
+        >
+          <Github className="w-4 h-4" />
+          <span>Continue with GitHub</span>
+        </button>
+
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-zinc-800" />
+          </div>
+          <div className="relative flex justify-center text-[10px] uppercase">
+            <span className="bg-zinc-950 px-2 text-zinc-500 font-mono">Or use handle</span>
+          </div>
+        </div>
 
         <form onSubmit={handleDevLogin} className="space-y-4 text-xs font-mono">
           <div>
@@ -100,7 +147,7 @@ export const Login: React.FC = () => {
 
         <div className="mt-6 pt-5 border-t border-zinc-800/80 text-center">
           <p className="text-[11px] text-zinc-500 font-mono">
-            Direct token authentication. Local sandbox data is stored in SQLite.
+            Fast session authentication • Instant arena access
           </p>
         </div>
       </div>

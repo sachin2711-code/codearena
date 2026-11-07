@@ -188,5 +188,74 @@
       { "input": "5\n4 1 2 1 2", "expected_output": "4", "is_sample": true },
       { "input": "1\n99", "expected_output": "99", "is_sample": false }
     ]
+  },
+  {
+    "title": "Valid Anagram",
+    "description": "Given two strings s and t, return 'true' if t is an anagram of s, and 'false' otherwise.\nInput: two strings separated by space or newline.",
+    "difficulty": "easy",
+    "constraints": "1 <= s.length, t.length <= 5 * 10^4\ns and t consist of lowercase English letters.",
+    "examples": [
+      { "input": "anagram nagaram", "output": "true" },
+      { "input": "rat car", "output": "false" }
+    ],
+    "time_limit_seconds": 1.5,
+    "memory_limit_mb": 128,
+    "starter_code": {
+      "python": "import sys\n\ndef main():\n    tokens = sys.stdin.read().split()\n    if len(tokens) < 2: return\n    s, t = tokens[0], tokens[1]\n    print('true' if sorted(s) == sorted(t) else 'false')\n\nif __name__ == '__main__':\n    main()\n",
+      "javascript": "const fs = require('fs');\nconst tokens = fs.readFileSync(0, 'utf-8').trim().split(/\\s+/);\nif (tokens.length >= 2) {\n    const s = tokens[0].split('').sort().join('');\n    const t = tokens[1].split('').sort().join('');\n    console.log(s === t ? 'true' : 'false');\n}\n",
+      "cpp": "#include <iostream>\n#include <string>\n#include <algorithm>\nusing namespace std;\nint main() {\n    string s, t;\n    if (cin >> s >> t) {\n        sort(s.begin(), s.end());\n        sort(t.begin(), t.end());\n        cout << (s == t ? \"true\" : \"false\") << endl;\n    }\n    return 0;\n}\n"
+    },
+    "test_cases": [
+      { "input": "anagram nagaram", "expected_output": "true", "is_sample": true },
+      { "input": "rat car", "expected_output": "false", "is_sample": true },
+      { "input": "listen silent", "expected_output": "true", "is_sample": false },
+      { "input": "a ab", "expected_output": "false", "is_sample": false }
+    ]
+  },
+  {
+    "title": "Contains Duplicate",
+    "description": "Given an integer array nums, return 'true' if any value appears at least twice in the array, and return 'false' if every element is distinct.\nFirst line: n. Second line: n space-separated integers.",
+    "difficulty": "easy",
+    "constraints": "1 <= nums.length <= 10^5\n-10^9 <= nums[i] <= 10^9",
+    "examples": [
+      { "input": "4\n1 2 3 1", "output": "true" },
+      { "input": "4\n1 2 3 4", "output": "false" }
+    ],
+    "time_limit_seconds": 1.5,
+    "memory_limit_mb": 128,
+    "starter_code": {
+      "python": "import sys\n\ndef main():\n    tokens = sys.stdin.read().split()\n    if not tokens: return\n    n = int(tokens[0])\n    nums = tokens[1:1+n]\n    print('true' if len(set(nums)) < len(nums) else 'false')\n\nif __name__ == '__main__':\n    main()\n",
+      "javascript": "const fs = require('fs');\nconst tokens = fs.readFileSync(0, 'utf-8').trim().split(/\\s+/);\nif (tokens.length > 1) {\n    const n = parseInt(tokens[0]);\n    const nums = tokens.slice(1, 1 + n);\n    const set = new Set(nums);\n    console.log(set.size < nums.length ? 'true' : 'false');\n}\n",
+      "cpp": "#include <iostream>\n#include <vector>\n#include <unordered_set>\nusing namespace std;\nint main() {\n    int n; if (!(cin >> n)) return 0;\n    unordered_set<int> seen;\n    bool dup = false;\n    for(int i=0; i<n; i++) {\n        int x; cin >> x;\n        if (seen.count(x)) dup = true;\n        seen.insert(x);\n    }\n    cout << (dup ? \"true\" : \"false\") << endl;\n    return 0;\n}\n"
+    },
+    "test_cases": [
+      { "input": "4\n1 2 3 1", "expected_output": "true", "is_sample": true },
+      { "input": "4\n1 2 3 4", "expected_output": "false", "is_sample": true },
+      { "input": "10\n1 1 1 3 3 4 3 2 4 2", "expected_output": "true", "is_sample": false },
+      { "input": "1\n42", "expected_output": "false", "is_sample": false }
+    ]
+  },
+  {
+    "title": "Longest Substring Without Repeating Characters",
+    "description": "Given a string s, find the length of the longest substring without repeating characters.\nInput: string s (can be on a single line).",
+    "difficulty": "medium",
+    "constraints": "0 <= s.length <= 5 * 10^4\ns consists of English letters, digits, symbols and spaces.",
+    "examples": [
+      { "input": "abcabcbb", "output": "3", "explanation": "The answer is 'abc', with the length of 3." },
+      { "input": "bbbbb", "output": "1", "explanation": "The answer is 'b', with the length of 1." }
+    ],
+    "time_limit_seconds": 2.0,
+    "memory_limit_mb": 128,
+    "starter_code": {
+      "python": "import sys\n\ndef main():\n    s = sys.stdin.readline().rstrip('\\r\\n')\n    seen = {}\n    l = 0\n    ans = 0\n    for r, c in enumerate(s):\n        if c in seen and seen[c] >= l:\n            l = seen[c] + 1\n        seen[c] = r\n        ans = max(ans, r - l + 1)\n    print(ans)\n\nif __name__ == '__main__':\n    main()\n",
+      "javascript": "const fs = require('fs');\nconst s = fs.readFileSync(0, 'utf-8').replace(/[\\r\\n]+$/, '');\nconst seen = new Map();\nlet l = 0, ans = 0;\nfor (let r = 0; r < s.length; r++) {\n    if (seen.has(s[r]) && seen.get(s[r]) >= l) {\n        l = seen.get(s[r]) + 1;\n    }\n    seen.set(s[r], r);\n    ans = Math.max(ans, r - l + 1);\n}\nconsole.log(ans);\n",
+      "cpp": "#include <iostream>\n#include <string>\n#include <unordered_map>\n#include <algorithm>\nusing namespace std;\nint main() {\n    string s;\n    if (getline(cin, s)) {\n        unordered_map<char, int> seen;\n        int l = 0, ans = 0;\n        for (int r = 0; r < (int)s.size(); r++) {\n            if (seen.count(s[r]) && seen[s[r]] >= l) {\n                l = seen[s[r]] + 1;\n            }\n            seen[s[r]] = r;\n            ans = max(ans, r - l + 1);\n        }\n        cout << ans << endl;\n    } else {\n        cout << 0 << endl;\n    }\n    return 0;\n}\n"
+    },
+    "test_cases": [
+      { "input": "abcabcbb", "expected_output": "3", "is_sample": true },
+      { "input": "bbbbb", "expected_output": "1", "is_sample": true },
+      { "input": "pwwkew", "expected_output": "3", "is_sample": false },
+      { "input": "abcdef", "expected_output": "6", "is_sample": false }
+    ]
   }
 ]

@@ -27,6 +27,10 @@ export const authApi = {
     const res = await api.post('/auth/google', { credential });
     return res.data;
   },
+  githubLogin: async (code: string) => {
+    const res = await api.post('/auth/github', { code });
+    return res.data;
+  },
   getMe: async (): Promise<UserProfile> => {
     const res = await api.get('/auth/me');
     return res.data;

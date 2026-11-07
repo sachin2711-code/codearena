@@ -155,6 +155,59 @@ class JudgeService:
         return "wrong_answer"
 
     @staticmethod
+    def _create_test_case_result(
+        test_index: int,
+        tc_input: str,
+        expected_output: str,
+        language: str,
+        exec_res: ExecutionResult,
+    ) -> TestCaseResult:
+        """Helper to transform an ExecutionResult into a TestCaseResult."""
+        if exec_res.timed_out:
+            return TestCaseResult(
+                test_index=test_index,
+                input=tc_input,
+                expected_output=expected_output,
+                actual_output="",
+                passed=False,
+                runtime_ms=exec_res.runtime_ms,
+                memory_kb=exec_res.memory_kb,
+                error="Time limit exceeded",
+            )
+
+        if exec_res.exit_code != 0:
+            error_type = (
+                "Compilation error"
+                if "error:" in exec_res.stderr.lower() and language == "cpp"
+                else "Runtime error"
+            )
+            return TestCaseResult(
+                test_index=test_index,
+                input=tc_input,
+                expected_output=expected_output,
+                actual_output=exec_res.stdout,
+                passed=False,
+                runtime_ms=exec_res.runtime_ms,
+                memory_kb=exec_res.memory_kb,
+                error=f"{error_type}: {exec_res.stderr[:500]}",
+            )
+
+        normalized_actual = JudgeService.normalize_output(exec_res.stdout)
+        normalized_expected = JudgeService.normalize_output(expected_output)
+        passed = normalized_actual == normalized_expected
+
+        return TestCaseResult(
+            test_index=test_index,
+            input=tc_input,
+            expected_output=expected_output,
+            actual_output=exec_res.stdout.strip(),
+            passed=passed,
+            runtime_ms=exec_res.runtime_ms,
+            memory_kb=exec_res.memory_kb,
+            error=None,
+        )
+
+    @staticmethod
     async def evaluate_submission(
         db: AsyncSession,
         submission_id: uuid.UUID,
@@ -167,18 +220,7 @@ class JudgeService:
     ) -> tuple[str, list[TestCaseResult]]:
         """Evaluate a complete submission against all test cases.
 
-        Args:
-            db: Async database session.
-            submission_id: The submission being evaluated.
-            code: Source code.
-            language: Programming language.
-            problem_id: Problem to test against.
-            time_limit: Seconds per test case.
-            memory_limit: MB per test case.
-            on_progress: Optional async callback(test_index, total, result).
-
-        Returns:
-            Tuple of (verdict, list of TestCaseResult).
+        Runs test cases in parallel using batch execution for sub-second response times.
         """
         # Get all test cases for the problem
         tc_result = await db.execute(
@@ -192,38 +234,41 @@ class JudgeService:
             logger.warning(f"No test cases found for problem {problem_id}")
             return "accepted", []
 
+        # Run all test cases in batch concurrently
+        inputs = [tc.input for tc in test_cases]
+        exec_results = await sandbox.run_code_batch(
+            code=code,
+            language=language,
+            inputs=inputs,
+            time_limit=time_limit,
+            memory_limit=memory_limit,
+        )
+
         results: list[TestCaseResult] = []
         total_runtime = 0.0
         max_memory = 0
         tests_passed = 0
 
-        for i, tc in enumerate(test_cases):
-            tc_result = await JudgeService.run_test_case(
-                code=code,
-                language=language,
-                test_input=tc.input,
-                expected_output=tc.expected_output,
-                time_limit=time_limit,
-                memory_limit=memory_limit,
+        for i, (tc, exec_res) in enumerate(zip(test_cases, exec_results)):
+            tc_res = JudgeService._create_test_case_result(
                 test_index=i,
+                tc_input=tc.input,
+                expected_output=tc.expected_output,
+                language=language,
+                exec_res=exec_res,
             )
-            results.append(tc_result)
-            total_runtime += tc_result.runtime_ms
-            max_memory = max(max_memory, tc_result.memory_kb)
+            results.append(tc_res)
+            total_runtime += tc_res.runtime_ms
+            max_memory = max(max_memory, tc_res.memory_kb)
 
-            if tc_result.passed:
+            if tc_res.passed:
                 tests_passed += 1
 
-            # Report progress
             if on_progress:
                 try:
-                    await on_progress(i, len(test_cases), tc_result)
+                    await on_progress(i, len(test_cases), tc_res)
                 except Exception as e:
                     logger.warning(f"Progress callback error: {e}")
-
-            # Early termination on compilation error
-            if tc_result.error and "Compilation error" in tc_result.error:
-                break
 
         verdict = JudgeService.compute_verdict(results)
 
@@ -259,18 +304,7 @@ class JudgeService:
     ) -> list[TestCaseResult]:
         """Run code against only the sample (visible) test cases.
 
-        Used for the "Run Tests" feature during a match.
-
-        Args:
-            db: Async database session.
-            code: Source code.
-            language: Programming language.
-            problem_id: Problem to test against.
-            time_limit: Seconds per test case.
-            memory_limit: MB per test case.
-
-        Returns:
-            List of TestCaseResult for sample tests only.
+        Executes sample cases concurrently for instant test feedback.
         """
         tc_result = await db.execute(
             select(TestCase)
@@ -279,18 +313,28 @@ class JudgeService:
         )
         test_cases = tc_result.scalars().all()
 
+        if not test_cases:
+            return []
+
+        inputs = [tc.input for tc in test_cases]
+        exec_results = await sandbox.run_code_batch(
+            code=code,
+            language=language,
+            inputs=inputs,
+            time_limit=time_limit,
+            memory_limit=memory_limit,
+        )
+
         results: list[TestCaseResult] = []
-        for i, tc in enumerate(test_cases):
-            tc_result = await JudgeService.run_test_case(
-                code=code,
-                language=language,
-                test_input=tc.input,
-                expected_output=tc.expected_output,
-                time_limit=time_limit,
-                memory_limit=memory_limit,
+        for i, (tc, exec_res) in enumerate(zip(test_cases, exec_results)):
+            tc_res = JudgeService._create_test_case_result(
                 test_index=i,
+                tc_input=tc.input,
+                expected_output=tc.expected_output,
+                language=language,
+                exec_res=exec_res,
             )
-            results.append(tc_result)
+            results.append(tc_res)
 
         return results
 
