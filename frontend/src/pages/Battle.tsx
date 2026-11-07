@@ -59,6 +59,9 @@ export const Battle: React.FC = () => {
     socket.on('submission_verdict', (data) => {
       setIsSubmitting(false);
       setSubmissionVerdict(data.verdict);
+      if (data.results && data.results.length > 0) {
+        setTestResults(data.results);
+      }
       updateMyProgress(data.tests_passed, data.total_tests);
       setConsoleTab('tests');
     });

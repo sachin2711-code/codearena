@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -263,6 +264,60 @@ class DockerSandbox:
             except Exception:
                 pass
 
+    @staticmethod
+    def _exec_subprocess_sync(
+        cmd: list[str],
+        stdin_val: str,
+        time_limit: float,
+    ) -> ExecutionResult:
+        """Synchronously execute a process in a worker thread.
+
+        Uses subprocess.Popen which is 100% immune to Windows event-loop limitations
+        (such as SelectorEventLoop NotImplementedError with asyncio.create_subprocess_exec).
+        """
+        start_time = time.time()
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                stdin_bytes = (stdin_val.encode("utf-8") + b"\n") if stdin_val else None
+                stdout_bytes, stderr_bytes = proc.communicate(
+                    input=stdin_bytes,
+                    timeout=time_limit,
+                )
+                runtime_ms = (time.time() - start_time) * 1000
+
+                return ExecutionResult(
+                    stdout=stdout_bytes.decode("utf-8", errors="replace").strip(),
+                    stderr=stderr_bytes.decode("utf-8", errors="replace").strip(),
+                    exit_code=proc.returncode or 0,
+                    runtime_ms=round(runtime_ms, 2),
+                    timed_out=False,
+                )
+            except subprocess.TimeoutExpired:
+                try:
+                    proc.kill()
+                    proc.communicate(timeout=0.5)
+                except Exception:
+                    pass
+                runtime_ms = (time.time() - start_time) * 1000
+                return ExecutionResult(
+                    stderr="Time limit exceeded",
+                    exit_code=137,
+                    runtime_ms=round(runtime_ms, 2),
+                    timed_out=True,
+                )
+        except Exception as exc:
+            return ExecutionResult(
+                stderr=f"Execution error: {exc}",
+                exit_code=1,
+                runtime_ms=round((time.time() - start_time) * 1000, 2),
+            )
+
     async def _fallback_run(
         self,
         code: str,
@@ -270,11 +325,7 @@ class DockerSandbox:
         stdin: str = "",
         time_limit: float = 2.0,
     ) -> ExecutionResult:
-        """Fallback: run code directly via subprocess when Docker is unavailable.
-
-        WARNING: This is only for development and has no security isolation.
-        Supports Python and JavaScript.
-        """
+        """Fallback: run code directly via subprocess in executor thread."""
         if language not in ("python", "javascript"):
             return ExecutionResult(
                 stderr=(
@@ -292,43 +343,15 @@ class DockerSandbox:
             with open(code_path, "w", encoding="utf-8") as f:
                 f.write(code)
 
-            start_time = time.time()
             cmd = [sys.executable, "-B", "-u", code_path] if language == "python" else ["node", code_path]
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(
+                None,
+                self._exec_subprocess_sync,
+                cmd,
+                stdin,
+                time_limit,
             )
-
-            try:
-                stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                    proc.communicate(input=stdin.encode("utf-8") if stdin else None),
-                    timeout=time_limit,
-                )
-                end_time = time.time()
-                runtime_ms = (end_time - start_time) * 1000
-
-                return ExecutionResult(
-                    stdout=stdout_bytes.decode("utf-8", errors="replace").strip(),
-                    stderr=stderr_bytes.decode("utf-8", errors="replace").strip(),
-                    exit_code=proc.returncode or 0,
-                    runtime_ms=round(runtime_ms, 2),
-                    timed_out=False,
-                )
-            except asyncio.TimeoutError:
-                try:
-                    proc.kill()
-                    await proc.wait()
-                except Exception:
-                    pass
-                end_time = time.time()
-                return ExecutionResult(
-                    stderr="Time limit exceeded",
-                    exit_code=137,
-                    runtime_ms=round((end_time - start_time) * 1000, 2),
-                    timed_out=True,
-                )
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -369,7 +392,7 @@ class DockerSandbox:
         time_limit: float = 2.0,
         concurrency: int = 6,
     ) -> list[ExecutionResult]:
-        """Batch subprocess runner: writes code ONCE and runs test cases in parallel."""
+        """Batch subprocess runner: writes code ONCE and runs test cases in parallel worker threads."""
         if language not in ("python", "javascript"):
             err_msg = (
                 f"Local fallback without Docker currently supports Python and JavaScript.\n"
@@ -387,51 +410,20 @@ class DockerSandbox:
                 f.write(code)
 
             cmd = [sys.executable, "-B", "-u", code_path] if language == "python" else ["node", code_path]
-            sem = asyncio.Semaphore(concurrency)
+            loop = asyncio.get_running_loop()
 
-            async def _run_single(stdin_val: str) -> ExecutionResult:
-                async with sem:
-                    start_time = time.time()
-                    try:
-                        proc = await asyncio.create_subprocess_exec(
-                            *cmd,
-                            stdin=asyncio.subprocess.PIPE,
-                            stdout=asyncio.subprocess.PIPE,
-                            stderr=asyncio.subprocess.PIPE,
-                        )
-                        try:
-                            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                                proc.communicate(input=stdin_val.encode("utf-8") if stdin_val else None),
-                                timeout=time_limit,
-                            )
-                            runtime_ms = (time.time() - start_time) * 1000
-                            return ExecutionResult(
-                                stdout=stdout_bytes.decode("utf-8", errors="replace").strip(),
-                                stderr=stderr_bytes.decode("utf-8", errors="replace").strip(),
-                                exit_code=proc.returncode or 0,
-                                runtime_ms=round(runtime_ms, 2),
-                                timed_out=False,
-                            )
-                        except asyncio.TimeoutError:
-                            try:
-                                proc.kill()
-                                await proc.wait()
-                            except Exception:
-                                pass
-                            return ExecutionResult(
-                                stderr="Time limit exceeded",
-                                exit_code=137,
-                                runtime_ms=round((time.time() - start_time) * 1000, 2),
-                                timed_out=True,
-                            )
-                    except Exception as e:
-                        return ExecutionResult(
-                            stderr=f"Process execution error: {e}",
-                            exit_code=1,
-                            runtime_ms=round((time.time() - start_time) * 1000, 2),
-                        )
+            tasks = [
+                loop.run_in_executor(
+                    None,
+                    self._exec_subprocess_sync,
+                    cmd,
+                    inp,
+                    time_limit,
+                )
+                for inp in inputs
+            ]
 
-            results = await asyncio.gather(*[_run_single(inp) for inp in inputs])
+            results = await asyncio.gather(*tasks)
             return list(results)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)

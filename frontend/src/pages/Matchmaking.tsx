@@ -31,22 +31,10 @@ export const Matchmaking: React.FC = () => {
       navigate('/battle');
     });
 
-    // Auto-match fallback for solo local testing
-    const fallbackTimer = setTimeout(async () => {
-      try {
-        const problem = await problemsApi.getRandom();
-        setMatch({
-          match_id: 'match_' + Math.random().toString(36).substring(2, 9),
-          player1_id: user?.id || 'player_1',
-          player2_id: 'guest_opponent',
-          problem: problem,
-          duration_seconds: 900,
-        });
-        navigate('/battle');
-      } catch (err) {
-        console.error('Fallback matchmaking error', err);
-      }
-    }, 6000);
+    // Auto-match fallback for solo testing: request practice match against ArenaBot
+    const fallbackTimer = setTimeout(() => {
+      socket.emit('request_practice_match');
+    }, 5000);
 
     return () => {
       clearInterval(timer);

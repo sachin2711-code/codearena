@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.problem import Problem, TestCase
 from app.schemas.problem import ProblemListItem, ProblemListResponse, ProblemResponse, TestCaseResponse
+from app.services.leetcode import leetcode_service
 
 router = APIRouter(prefix="/problems", tags=["problems"])
 
@@ -63,21 +64,8 @@ async def get_random_problem(
     difficulty: str | None = Query(None, regex="^(easy|medium|hard)$"),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Fetch a random problem for matchmaking or practice."""
-    query = select(Problem).options(selectinload(Problem.test_cases))
-    if difficulty:
-        query = query.where(Problem.difficulty == difficulty)
-
-    result = await db.execute(query)
-    problems = result.scalars().all()
-
-    if not problems:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No problems found matching criteria",
-        )
-
-    chosen = random.choice(problems)
+    """Dynamically fetch a random problem from LeetCode."""
+    chosen = await leetcode_service.get_or_create_random_problem(db, difficulty)
     sample_tests = [
         TestCaseResponse(
             id=tc.id,

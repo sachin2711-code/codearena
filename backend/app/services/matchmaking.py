@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.models.match import Match
 from app.models.problem import Problem
 from app.models.user import User
+from app.services.leetcode import leetcode_service
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -46,114 +47,99 @@ class MatchmakingService:
         elo_rating: int,
         sid: str,
     ) -> bool:
-        """Add a user to the matchmaking queue.
+        """Add a user to the matchmaking queue."""
+        try:
+            r = await self.get_redis()
+            user_key = str(user_id)
 
-        Args:
-            user_id: The user's ID.
-            elo_rating: The user's current ELO rating.
-            sid: Socket.IO session ID for the user.
+            # Check if already in queue
+            existing = await r.zscore(MATCHMAKING_QUEUE_KEY, user_key)
+            if existing is not None:
+                logger.info(f"User {user_id} already in matchmaking queue")
+                return False
 
-        Returns:
-            True if the user was added, False if already in queue.
-        """
-        r = await self.get_redis()
-        user_key = str(user_id)
+            # Store user data and add to sorted set (score = elo)
+            user_data = json.dumps({
+                "user_id": str(user_id),
+                "elo_rating": elo_rating,
+                "sid": sid,
+                "queued_at": datetime.now(timezone.utc).isoformat(),
+            })
+            await r.set(f"{MATCHMAKING_DATA_PREFIX}{user_key}", user_data, ex=300)
+            await r.zadd(MATCHMAKING_QUEUE_KEY, {user_key: elo_rating})
 
-        # Check if already in queue
-        existing = await r.zscore(MATCHMAKING_QUEUE_KEY, user_key)
-        if existing is not None:
-            logger.info(f"User {user_id} already in matchmaking queue")
+            logger.info(f"User {user_id} added to matchmaking queue (ELO={elo_rating})")
+            return True
+        except Exception as e:
+            logger.debug(f"Redis matchmaking queue unavailable: {e}")
             return False
 
-        # Store user data and add to sorted set (score = elo)
-        user_data = json.dumps({
-            "user_id": str(user_id),
-            "elo_rating": elo_rating,
-            "sid": sid,
-            "queued_at": datetime.now(timezone.utc).isoformat(),
-        })
-        await r.set(f"{MATCHMAKING_DATA_PREFIX}{user_key}", user_data, ex=300)
-        await r.zadd(MATCHMAKING_QUEUE_KEY, {user_key: elo_rating})
-
-        logger.info(f"User {user_id} added to matchmaking queue (ELO={elo_rating})")
-        return True
-
     async def remove_from_queue(self, user_id: uuid.UUID) -> bool:
-        """Remove a user from the matchmaking queue.
+        """Remove a user from the matchmaking queue."""
+        try:
+            r = await self.get_redis()
+            user_key = str(user_id)
+            removed = await r.zrem(MATCHMAKING_QUEUE_KEY, user_key)
+            await r.delete(f"{MATCHMAKING_DATA_PREFIX}{user_key}")
 
-        Args:
-            user_id: The user's ID.
-
-        Returns:
-            True if the user was removed, False if not in queue.
-        """
-        r = await self.get_redis()
-        user_key = str(user_id)
-        removed = await r.zrem(MATCHMAKING_QUEUE_KEY, user_key)
-        await r.delete(f"{MATCHMAKING_DATA_PREFIX}{user_key}")
-
-        if removed:
-            logger.info(f"User {user_id} removed from matchmaking queue")
-        return bool(removed)
+            if removed:
+                logger.info(f"User {user_id} removed from matchmaking queue")
+            return bool(removed)
+        except Exception as e:
+            logger.debug(f"Redis remove_from_queue skipped: {e}")
+            return False
 
     async def find_opponent(
         self,
         user_id: uuid.UUID,
         elo_rating: int,
     ) -> dict | None:
-        """Find a suitable opponent within the ELO range.
+        """Find a suitable opponent within the ELO range."""
+        try:
+            r = await self.get_redis()
 
-        Searches the sorted set for users within ±ELO_RANGE of the
-        requesting user's rating.
+            min_elo = elo_rating - ELO_RANGE
+            max_elo = elo_rating + ELO_RANGE
 
-        Args:
-            user_id: The requesting user's ID.
-            elo_rating: The requesting user's ELO rating.
-
-        Returns:
-            Opponent user data dict if found, None otherwise.
-        """
-        r = await self.get_redis()
-
-        min_elo = elo_rating - ELO_RANGE
-        max_elo = elo_rating + ELO_RANGE
-
-        # Find candidates in the ELO range
-        candidates = await r.zrangebyscore(
-            MATCHMAKING_QUEUE_KEY,
-            min=min_elo,
-            max=max_elo,
-        )
-
-        user_key = str(user_id)
-        for candidate_key in candidates:
-            if candidate_key == user_key:
-                continue  # Skip self
-
-            # Get candidate data
-            data_str = await r.get(f"{MATCHMAKING_DATA_PREFIX}{candidate_key}")
-            if data_str is None:
-                # Stale entry — clean up
-                await r.zrem(MATCHMAKING_QUEUE_KEY, candidate_key)
-                continue
-
-            candidate_data = json.loads(data_str)
-            logger.info(
-                f"Found opponent for {user_id}: {candidate_data['user_id']} "
-                f"(ELO={candidate_data['elo_rating']})"
+            # Find candidates in the ELO range
+            candidates = await r.zrangebyscore(
+                MATCHMAKING_QUEUE_KEY,
+                min=min_elo,
+                max=max_elo,
             )
 
-            # Remove both players from the queue
-            await r.zrem(MATCHMAKING_QUEUE_KEY, user_key, candidate_key)
-            await r.delete(
-                f"{MATCHMAKING_DATA_PREFIX}{user_key}",
-                f"{MATCHMAKING_DATA_PREFIX}{candidate_key}",
-            )
+            user_key = str(user_id)
+            for candidate_key in candidates:
+                if candidate_key == user_key:
+                    continue  # Skip self
 
-            return candidate_data
+                # Get candidate data
+                data_str = await r.get(f"{MATCHMAKING_DATA_PREFIX}{candidate_key}")
+                if data_str is None:
+                    # Stale entry — clean up
+                    await r.zrem(MATCHMAKING_QUEUE_KEY, candidate_key)
+                    continue
 
-        logger.info(f"No opponent found for user {user_id} (ELO={elo_rating})")
-        return None
+                candidate_data = json.loads(data_str)
+                logger.info(
+                    f"Found opponent for {user_id}: {candidate_data['user_id']} "
+                    f"(ELO={candidate_data['elo_rating']})"
+                )
+
+                # Remove both players from the queue
+                await r.zrem(MATCHMAKING_QUEUE_KEY, user_key, candidate_key)
+                await r.delete(
+                    f"{MATCHMAKING_DATA_PREFIX}{user_key}",
+                    f"{MATCHMAKING_DATA_PREFIX}{candidate_key}",
+                )
+
+                return candidate_data
+
+            logger.info(f"No opponent found for user {user_id} (ELO={elo_rating})")
+            return None
+        except Exception as e:
+            logger.debug(f"Redis find_opponent skipped: {e}")
+            return None
 
     async def create_match(
         self,
@@ -194,22 +180,13 @@ class MatchmakingService:
             difficulties = ["medium", "hard"]
             difficulty = random.choice(difficulties)
 
-        # Pick a random problem of that difficulty
-        problem_result = await db.execute(
-            select(Problem)
-            .where(Problem.difficulty == difficulty, Problem.is_active == True)  # noqa: E712
-            .order_by(func.random())
-            .limit(1)
-        )
-        problem = problem_result.scalar_one_or_none()
-
-        # Fallback to any problem if none found with the desired difficulty
-        if problem is None:
+        # Fetch dynamic live LeetCode problem of that difficulty
+        try:
+            problem = await leetcode_service.get_or_create_random_problem(db, difficulty)
+        except Exception as e:
+            logger.warning(f"LeetCode dynamic fetch error: {e}. Falling back to DB.")
             problem_result = await db.execute(
-                select(Problem)
-                .where(Problem.is_active == True)  # noqa: E712
-                .order_by(func.random())
-                .limit(1)
+                select(Problem).order_by(func.random()).limit(1)
             )
             problem = problem_result.scalar_one_or_none()
 

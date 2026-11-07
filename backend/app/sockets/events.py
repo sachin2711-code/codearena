@@ -82,7 +82,10 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
         user_id = sid_to_user.pop(sid, None)
         if user_id:
             user_to_sid.pop(str(user_id), None)
-            await matchmaking_service.remove_from_queue(user_id)
+            try:
+                await matchmaking_service.remove_from_queue(user_id)
+            except Exception:
+                pass
             logger.info(f"User {user_id} disconnected from socket {sid}")
 
     @server.event
@@ -267,6 +270,71 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
             await server.emit("sample_test_results", {"results": results}, to=sid)
 
     @server.event
+    async def request_practice_match(sid: str, data: dict | None = None) -> None:
+        """Create a real match in DB against ArenaBot for solo practice and testing."""
+        user_id = sid_to_user.get(sid)
+        if not user_id:
+            return
+
+        async with async_session_maker() as db:
+            # Ensure user exists in DB
+            user = await db.get(User, user_id)
+            if not user:
+                user = User(
+                    id=user_id,
+                    username=f"Coder_{str(user_id)[:6]}",
+                    email=f"user_{str(user_id)[:6]}@codearena.local",
+                    google_id=f"dev_{uuid.uuid4().hex[:10]}",
+                    avatar_url="https://api.dicebear.com/7.x/bottts/svg?seed=Coder",
+                    elo_rating=1200,
+                )
+                db.add(user)
+                await db.commit()
+
+            # Ensure bot user exists in DB
+            stmt = select(User).where(User.username == "ArenaBot")
+            bot_res = await db.execute(stmt)
+            bot = bot_res.scalar_one_or_none()
+            if not bot:
+                bot = User(
+                    username="ArenaBot",
+                    email="bot@codearena.internal",
+                    google_id="bot_system_internal",
+                    avatar_url="https://api.dicebear.com/7.x/bottts/svg?seed=ArenaBot",
+                    elo_rating=1250,
+                )
+                db.add(bot)
+                await db.commit()
+                await db.refresh(bot)
+
+            match = await matchmaking_service.create_match(db, user_id, bot.id)
+            if match:
+                room_name = f"match_{match.id}"
+                await server.enter_room(sid, room_name)
+
+                problem = await db.get(Problem, match.problem_id)
+                problem_data = {
+                    "id": str(problem.id) if problem else "",
+                    "title": problem.title if problem else "Two Sum",
+                    "description": problem.description if problem else "",
+                    "difficulty": problem.difficulty if problem else "medium",
+                    "constraints": problem.constraints if problem else "",
+                    "examples": problem.examples if problem else [],
+                    "time_limit_seconds": problem.time_limit_seconds if problem else 2.0,
+                    "starter_code": problem.starter_code if problem else {},
+                }
+
+                match_payload = {
+                    "match_id": str(match.id),
+                    "player1_id": str(user_id),
+                    "player2_id": str(bot.id),
+                    "problem": problem_data,
+                    "duration_seconds": 900,
+                }
+                await server.emit("match_found", match_payload, to=sid)
+                logger.info(f"Practice match {match.id} launched for {user_id} vs ArenaBot")
+
+    @server.event
     async def submit_solution(sid: str, data: dict) -> None:
         """Submit code for full evaluation."""
         user_id = sid_to_user.get(sid)
@@ -275,7 +343,7 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
         code = data.get("code", "")
         language = data.get("language", "python")
 
-        if not user_id or not match_id_str or not problem_id_str:
+        if not user_id or not problem_id_str:
             await server.emit("error", {"message": "Invalid submission payload"}, to=sid)
             return
 
@@ -294,69 +362,97 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
         timestamps.append(now)
         user_submission_history[uid_str] = timestamps
 
-        match_id = uuid.UUID(match_id_str)
-        problem_id = uuid.UUID(problem_id_str)
+        try:
+            problem_id = uuid.UUID(problem_id_str)
+        except Exception:
+            await server.emit("error", {"message": "Invalid problem ID"}, to=sid)
+            return
+
+        match_uuid = None
+        if match_id_str:
+            try:
+                match_uuid = uuid.UUID(match_id_str)
+            except Exception:
+                pass
 
         async with async_session_maker() as db:
-            # Create submission in DB
-            sub = Submission(
-                match_id=match_id,
-                user_id=user_id,
-                problem_id=problem_id,
-                code=code,
-                language=language,
-                verdict="pending",
-                tests_passed=0,
-                total_tests=0,
-            )
-            db.add(sub)
-            await db.commit()
-            await db.refresh(sub)
+            sub = None
+            if match_uuid:
+                db_user = await db.get(User, user_id)
+                db_match = await db.get(Match, match_uuid)
+                if db_user and db_match:
+                    sub = Submission(
+                        match_id=match_uuid,
+                        user_id=user_id,
+                        problem_id=problem_id,
+                        code=code,
+                        language=language,
+                        verdict="pending",
+                        tests_passed=0,
+                        total_tests=0,
+                    )
+                    db.add(sub)
+                    await db.commit()
+                    await db.refresh(sub)
 
-            room = f"match_{match_id}"
-            await server.emit("submission_received", {"submission_id": str(sub.id)}, to=sid)
+            submission_id = sub.id if sub else uuid.uuid4()
+            room = f"match_{match_id_str}"
+            await server.emit("submission_received", {"submission_id": str(submission_id)}, to=sid)
 
-            # Trigger Celery task in background (or evaluate in-process if Celery worker is offline)
             try:
-                run_submission.delay(
-                    submission_id=str(sub.id),
-                    code=code,
-                    language=language,
-                    problem_id=problem_id_str,
-                    match_id=match_id_str,
-                    user_id=str(user_id),
-                )
-            except Exception as e:
-                logger.warning(f"Celery dispatch failed: {e}. Evaluating directly in-process.")
-                # Direct in-process fallback
                 verdict, results = await judge_service.evaluate_submission(
                     db=db,
-                    submission_id=sub.id,
+                    submission_id=submission_id,
                     code=code,
                     language=language,
                     problem_id=problem_id,
                 )
-                passed = sum(1 for r in results if r.passed)
-                total = len(results)
-
-                # Emit progress to room
-                await server.emit("opponent_progress", {
-                    "user_id": str(user_id),
-                    "tests_passed": passed,
-                    "total_tests": total,
-                }, room=room, skip_sid=sid)
-
-                # Emit final verdict to player
+            except Exception as eval_err:
+                logger.error(f"Evaluation error: {eval_err}")
                 await server.emit("submission_verdict", {
-                    "submission_id": str(sub.id),
-                    "verdict": verdict,
-                    "tests_passed": passed,
-                    "total_tests": total,
+                    "submission_id": str(submission_id),
+                    "verdict": "runtime_error",
+                    "tests_passed": 0,
+                    "total_tests": 0,
                 }, to=sid)
+                return
 
-                # If accepted, mark match as completed and update ELO!
-                if verdict == "accepted":
-                    match = await db.get(Match, match_id)
+            passed = sum(1 for r in results if r.passed)
+            total = len(results)
+
+            formatted_results = [
+                {
+                    "test_index": r.test_index,
+                    "input": r.input,
+                    "expected": r.expected_output,
+                    "actual": r.actual_output,
+                    "passed": r.passed,
+                    "runtime_ms": r.runtime_ms,
+                    "error": r.error,
+                }
+                for r in results
+            ]
+
+            # Emit progress to room
+            await server.emit("opponent_progress", {
+                "user_id": str(user_id),
+                "tests_passed": passed,
+                "total_tests": total,
+            }, room=room, skip_sid=sid)
+
+            # Emit final verdict to player
+            await server.emit("submission_verdict", {
+                "submission_id": str(submission_id),
+                "verdict": verdict,
+                "tests_passed": passed,
+                "total_tests": total,
+                "results": formatted_results,
+            }, to=sid)
+
+            # If accepted, mark match as completed and update ELO!
+            if verdict == "accepted":
+                if match_uuid:
+                    match = await db.get(Match, match_uuid)
                     if match and match.status != "completed":
                         match.status = "completed"
                         match.winner_id = user_id
@@ -381,11 +477,11 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                                 p1.losses += 1
                             await db.commit()
 
-                        await server.emit("match_ended", {
-                            "winner_id": str(user_id),
-                            "reason": "solved",
-                            "match_id": match_id_str,
-                        }, room=room)
+                await server.emit("match_ended", {
+                    "winner_id": str(user_id),
+                    "reason": "solved",
+                    "match_id": match_id_str,
+                }, room=room)
 
     @server.event
     async def forfeit(sid: str, data: dict) -> None:

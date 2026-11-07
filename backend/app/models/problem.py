@@ -1,8 +1,7 @@
 """Problem and TestCase models."""
 
 import uuid
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, Float
-from sqlalchemy.dialects.postgresql import UUID, JSON
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, Float, JSON, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -50,7 +49,7 @@ class TestCase(BaseModel):
     __tablename__ = "test_cases"
 
     problem_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("problems.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
