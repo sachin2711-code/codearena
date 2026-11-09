@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Send, Flag, CheckCircle2, XCircle, AlertCircle, Trophy, Terminal, RotateCcw, ArrowRight } from 'lucide-react';
+import { Play, Send, Flag, CheckCircle2, XCircle, AlertCircle, Trophy, Terminal, RotateCcw, ArrowRight, Share2 } from 'lucide-react';
 import { ProblemPanel } from '../components/ProblemPanel';
 import { CodeEditor } from '../components/CodeEditor';
 import { Timer } from '../components/Timer';
 import { useAuthStore } from '../stores/authStore';
 import { useMatchStore } from '../stores/matchStore';
 import { socketService } from '../services/socket';
+import { sound } from '../utils/sound';
 
 export const Battle: React.FC = () => {
   const { user } = useAuthStore();
@@ -50,6 +51,12 @@ export const Battle: React.FC = () => {
       setTestResults(data.results || []);
       setIsRunningTests(false);
       setConsoleTab('tests');
+      const allPassed = (data.results || []).length > 0 && (data.results || []).every((r: any) => r.passed);
+      if (allPassed) {
+        sound.playSuccess();
+      } else {
+        sound.playError();
+      }
     });
 
     socket.on('opponent_progress', (data) => {
@@ -64,11 +71,19 @@ export const Battle: React.FC = () => {
       }
       updateMyProgress(data.tests_passed, data.total_tests);
       setConsoleTab('tests');
+      if (data.verdict === 'accepted') {
+        sound.playSuccess();
+      } else {
+        sound.playError();
+      }
     });
 
     socket.on('match_ended', (data) => {
       endMatch(data.winner_id, data.reason);
       setShowResultModal(true);
+      if (data.winner_id === user?.id) {
+        sound.playVictory();
+      }
     });
 
     return () => {
@@ -135,6 +150,11 @@ export const Battle: React.FC = () => {
         setCode(problem.starter_code[language]);
       }
     }
+  };
+
+  const handleShareVictory = () => {
+    const text = encodeURIComponent(`🏆 I just won a 1v1 live coding battle on CodeArena solving "${problem?.title}"! Think you can beat me? Challenge me: ${window.location.origin}/duel`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   if (!problem) return null;
@@ -353,6 +373,16 @@ export const Battle: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-2.5 pt-2">
+              {isWinner && (
+                <button
+                  onClick={handleShareVictory}
+                  className="w-full py-2.5 rounded-lg bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/40 text-[#25D366] font-mono text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share Victory on WhatsApp</span>
+                </button>
+              )}
+
               <button
                 onClick={() => navigate(`/analysis/${matchId}`)}
                 className="w-full py-2.5 rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 font-mono font-bold text-xs transition-colors flex items-center justify-center gap-2"

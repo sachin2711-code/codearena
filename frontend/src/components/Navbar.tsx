@@ -1,12 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Swords, Trophy, History, Terminal, LogOut, Radio } from 'lucide-react';
+import { Swords, Trophy, History, Terminal, LogOut, Radio, Volume2, VolumeX } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
+import { sound } from '../utils/sound';
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [muted, setMuted] = useState(sound.isMuted());
+
+  const toggleSound = () => {
+    const next = sound.toggleMute();
+    setMuted(next);
+  };
 
   const handleLogout = () => {
     logout();
@@ -73,7 +80,17 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Sound Mute Toggle */}
+          <button
+            onClick={toggleSound}
+            className="p-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+            title={muted ? 'Unmute match audio' : 'Mute match audio'}
+            aria-label="Toggle Sound"
+          >
+            {muted ? <VolumeX className="w-3.5 h-3.5 text-zinc-500" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+          </button>
+
           {/* Server status pill */}
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

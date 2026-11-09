@@ -13,6 +13,8 @@ import { Leaderboard } from './pages/Leaderboard';
 import { MatchHistory } from './pages/MatchHistory';
 import { Profile } from './pages/Profile';
 import { Analysis } from './pages/Analysis';
+import { Terms } from './pages/Terms';
+import { Privacy } from './pages/Privacy';
 import { useAuthStore } from './stores/authStore';
 
 export const App: React.FC = () => {
@@ -32,6 +34,8 @@ export const App: React.FC = () => {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
@@ -48,6 +52,29 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+
+        {/* Minimal Platform Footer */}
+        <footer className="border-t border-zinc-900 bg-[#090a0f] py-4 text-xs font-mono text-zinc-500">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <span>CodeArena © 2026 • Real-time Algorithmic 1v1 Battleground</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <a href="/terms" className="hover:text-zinc-300 transition-colors">Terms</a>
+              <span className="text-zinc-700">•</span>
+              <a href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</a>
+              <span className="text-zinc-700">•</span>
+              <a
+                href="https://github.com/sachin2711-code/codearena"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-zinc-300 transition-colors"
+              >
+                GitHub
+              </a>
+            </div>
+          </div>
+        </footer>
       </div>
     </BrowserRouter>
   );

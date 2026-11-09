@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Swords, Link2, Copy, Check, Users, ArrowRight, Loader2, AlertCircle, X } from 'lucide-react';
+import { Swords, Link2, Copy, Check, Users, ArrowRight, Loader2, AlertCircle, X, Share2, Send } from 'lucide-react';
 import { socketService } from '../services/socket';
 import { useMatchStore } from '../stores/matchStore';
+import { sound } from '../utils/sound';
 
 export const CustomDuel: React.FC = () => {
   const { roomCode: paramCode } = useParams<{ roomCode?: string }>();
@@ -31,6 +32,7 @@ export const CustomDuel: React.FC = () => {
     });
 
     socket.on('match_found', (data) => {
+      sound.playMatchFound();
       setMatch(data);
       navigate('/battle');
     });
@@ -71,6 +73,12 @@ export const CustomDuel: React.FC = () => {
     navigator.clipboard.writeText(duelUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShareWhatsApp = () => {
+    if (!duelUrl) return;
+    const text = encodeURIComponent(`⚔️ I challenge you to a 1v1 live coding battle on CodeArena!\n\nRoom Code: ${activeCode}\nJoin the duel: ${duelUrl}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   return (
@@ -122,6 +130,14 @@ export const CustomDuel: React.FC = () => {
                   <span>{copied ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
+
+              <button
+                onClick={handleShareWhatsApp}
+                className="w-full mt-2 py-2 px-3 rounded bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/40 text-[#25D366] text-xs font-bold font-sans transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Share Challenge via WhatsApp</span>
+              </button>
             </div>
 
             <div className="flex items-center justify-center gap-2 text-xs text-zinc-400 pt-2 font-sans">
