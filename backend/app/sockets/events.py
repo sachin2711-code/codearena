@@ -463,24 +463,36 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                             match.duration_seconds = max(1, int((now_utc - match.started_at).total_seconds()))
                         await db.commit()
 
-                        # Update ELO ratings
+                        # Update ELO ratings and win/loss stats
                         p1 = await db.get(User, match.player1_id)
                         p2 = await db.get(User, match.player2_id)
+                        # p2 may be None for ArenaBot matches; still update the real player
+                        winner_is_p1 = user_id == (p1.id if p1 else None)
                         if p1 and p2:
                             r1_new, r2_new, d1, d2 = elo_service.calculate_match_result(
                                 p1.elo_rating,
                                 p2.elo_rating,
-                                "p1_win" if user_id == p1.id else "p2_win"
+                                "p1_win" if winner_is_p1 else "p2_win"
                             )
                             p1.elo_rating = r1_new
                             p2.elo_rating = r2_new
-                            if user_id == p1.id:
+                        elif p1:
+                            # Bot match — only update real player's ELO loosely
+                            p1.elo_rating = min(p1.elo_rating + 16, 3000)
+                        elif p2:
+                            p2.elo_rating = min(p2.elo_rating + 16, 3000)
+                        # Update win/loss for each real player
+                        if p1:
+                            if winner_is_p1:
                                 p1.wins += 1
+                            elif p2 or match.winner_id != p1.id:
+                                p1.losses += 1
+                        if p2:
+                            if winner_is_p1:
                                 p2.losses += 1
                             else:
                                 p2.wins += 1
-                                p1.losses += 1
-                            await db.commit()
+                        await db.commit()
 
                 await server.emit("match_ended", {
                     "winner_id": str(user_id),
@@ -507,6 +519,22 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                 match.ended_at = now_utc
                 if match.started_at:
                     match.duration_seconds = max(1, int((now_utc - match.started_at).total_seconds()))
+                await db.commit()
+
+                # Update wins/losses for real players on forfeit
+                p1 = await db.get(User, match.player1_id)
+                p2 = await db.get(User, match.player2_id)
+                forfeiter_is_p1 = match.player1_id == user_id
+                if p1:
+                    if forfeiter_is_p1:
+                        p1.losses += 1
+                    else:
+                        p1.wins += 1
+                if p2:
+                    if forfeiter_is_p1:
+                        p2.wins += 1
+                    else:
+                        p2.losses += 1
                 await db.commit()
 
                 room = f"match_{match_id}"

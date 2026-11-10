@@ -10,7 +10,7 @@ import { socketService } from '../services/socket';
 import { sound } from '../utils/sound';
 
 export const Battle: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, fetchUser } = useAuthStore();
   const {
     matchId,
     problem,
@@ -84,6 +84,8 @@ export const Battle: React.FC = () => {
       if (data.winner_id === user?.id) {
         sound.playVictory();
       }
+      // Re-fetch user to update wins/losses/ELO stats in Dashboard
+      fetchUser();
     });
 
     return () => {

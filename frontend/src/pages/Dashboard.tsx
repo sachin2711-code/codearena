@@ -6,7 +6,7 @@ import { matchesApi } from '../services/api';
 import { Match } from '../types';
 
 export const Dashboard: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, fetchUser } = useAuthStore();
   const navigate = useNavigate();
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +23,7 @@ export const Dashboard: React.FC = () => {
       }
     };
     loadMatches();
+    fetchUser(); // Refresh user stats (wins/losses/ELO) every time Dashboard mounts
   }, []);
 
   const totalMatches = user ? user.wins + user.losses + user.draws : 0;
