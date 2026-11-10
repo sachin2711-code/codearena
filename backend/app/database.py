@@ -12,19 +12,28 @@ if db_url.startswith("postgres://"):
 elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# asyncpg requires 'ssl' instead of 'sslmode'
 parsed = urlparse(db_url)
 query_dict = parse_qs(parsed.query)
+
+# Determine SSL requirement and clean unsupported libpq flags (sslmode, channel_binding, etc.)
+use_ssl = False
 if "sslmode" in query_dict:
-    ssl_val = query_dict.pop("sslmode")[0]
-    if "ssl" not in query_dict:
-        query_dict["ssl"] = [ssl_val]
-    new_query = urlencode(query_dict, doseq=True)
-    db_url = urlunparse(parsed._replace(query=new_query))
+    if query_dict.get("sslmode", [""])[0] != "disable":
+        use_ssl = True
+elif "ssl" in query_dict:
+    if query_dict.get("ssl", [""])[0].lower() not in ("0", "false", "disable"):
+        use_ssl = True
+elif parsed.hostname and parsed.hostname not in ("localhost", "127.0.0.1", "postgres"):
+    use_ssl = True
+
+# Strip query string from URL so asyncpg doesn't reject libpq-only parameters
+db_url = urlunparse(parsed._replace(query=""))
 
 connect_args = {}
 if db_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+elif use_ssl:
+    connect_args["ssl"] = "require"
 
 engine = create_async_engine(
     db_url,
