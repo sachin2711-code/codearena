@@ -259,7 +259,174 @@ if (typeof require !== 'undefined' && typeof process !== 'undefined') {
 """
             return code + "\n" + js_harness
 
+        elif language == "cpp":
+            has_main = bool(re.search(r'\bint\s+main\s*\(', code) or re.search(r'\bvoid\s+main\s*\(', code))
+
+            headers = """#include <iostream>
+#include <vector>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <map>
+#include <set>
+#include <queue>
+#include <stack>
+#include <deque>
+#include <algorithm>
+#include <numeric>
+#include <cmath>
+#include <cctype>
+#include <sstream>
+
+using namespace std;
+
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+
+struct TreeNode {
+    int val;
+    TreeNode *left;
+    TreeNode *right;
+    TreeNode() : val(0), left(nullptr), right(nullptr) {}
+    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+    TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+};
+"""
+            if has_main:
+                if "#include" in code:
+                    return code
+                return headers + "\n" + code
+
+            cpp_driver = JudgeService._generate_cpp_driver(code)
+            return headers + "\n" + code + "\n" + cpp_driver
+
         return code
+
+    @staticmethod
+    def _generate_cpp_driver(code: str) -> str:
+        """Generate an auto-executing int main() driver for C++ class Solution."""
+        clean_code = re.sub(r'//.*', '', code)
+        clean_code = re.sub(r'/\*.*?\*/', '', clean_code, flags=re.DOTALL)
+        pattern = r'(bool|int|string|void|double|float|long\s+long|vector<[a-zA-Z0-9_:*<> ]+>|ListNode\*|TreeNode\*)\s+([a-zA-Z_]\w*)\s*\(([^)]*)\)\s*\{'
+        match = re.search(pattern, clean_code)
+
+        if not match:
+            return "\nint main() { return 0; }\n"
+
+        ret_type = match.group(1).strip()
+        method_name = match.group(2).strip()
+        raw_params = match.group(3).strip()
+
+        params = []
+        if raw_params:
+            for p in raw_params.split(','):
+                p = p.strip()
+                parts = p.rsplit(' ', 1)
+                if len(parts) == 2:
+                    p_type = parts[0].strip()
+                    p_name = parts[1].strip().lstrip('&').lstrip('*')
+                    params.append((p_type, p_name))
+                else:
+                    params.append((p, 'arg'))
+
+        driver_body = """
+namespace _Driver {
+    string clean(string s) {
+        size_t eq = s.find('=');
+        if (eq != string::npos && eq + 1 < s.size()) s = s.substr(eq + 1);
+        while (!s.empty() && isspace((unsigned char)s.front())) s.erase(s.begin());
+        while (!s.empty() && isspace((unsigned char)s.back())) s.pop_back();
+        if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+            s = s.substr(1, s.size() - 2);
+        }
+        return s;
+    }
+    vector<int> parseVectorInt(string s) {
+        vector<int> res;
+        size_t eq = s.find('=');
+        if (eq != string::npos) s = s.substr(eq + 1);
+        string cur = "";
+        bool inNum = false;
+        for (char c : s) {
+            if (isdigit((unsigned char)c) || c == '-') {
+                cur += c;
+                inNum = true;
+            } else if (inNum) {
+                if (!cur.empty() && cur != "-") res.push_back(stoi(cur));
+                cur = "";
+                inNum = false;
+            }
+        }
+        if (inNum && !cur.empty() && cur != "-") res.push_back(stoi(cur));
+        return res;
+    }
+    int parseInt(string s) {
+        size_t eq = s.find('=');
+        if (eq != string::npos) s = s.substr(eq + 1);
+        string cur = "";
+        for (char c : s) {
+            if (isdigit((unsigned char)c) || c == '-') cur += c;
+            else if (!cur.empty() && cur != "-") break;
+        }
+        return (cur.empty() || cur == "-") ? 0 : stoi(cur);
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    string raw, line;
+    while (getline(cin, line)) {
+        if (!raw.empty()) raw += "\\n";
+        raw += line;
+    }
+    Solution sol;
+"""
+
+        if len(params) == 0:
+            call_code = f"auto res = sol.{method_name}();"
+        elif len(params) == 1:
+            p_type, _ = params[0]
+            if "string" in p_type:
+                call_code = f"string arg = _Driver::clean(raw);\n    auto res = sol.{method_name}(arg);"
+            elif "vector" in p_type:
+                call_code = f"auto arg = _Driver::parseVectorInt(raw);\n    auto res = sol.{method_name}(arg);"
+            else:
+                call_code = f"int arg = _Driver::parseInt(raw);\n    auto res = sol.{method_name}(arg);"
+        elif len(params) == 2:
+            p1_type, _ = params[0]
+            p2_type, _ = params[1]
+            split_logic = """
+    size_t split_pos = raw.rfind("target =");
+    if (split_pos == string::npos) split_pos = raw.rfind(',');
+    string s1 = (split_pos != string::npos) ? raw.substr(0, split_pos) : raw;
+    string s2 = (split_pos != string::npos) ? raw.substr(split_pos + 1) : "";
+"""
+            p1_expr = "_Driver::parseVectorInt(s1)" if "vector" in p1_type else ("_Driver::clean(s1)" if "string" in p1_type else "_Driver::parseInt(s1)")
+            p2_expr = "_Driver::parseVectorInt(s2)" if "vector" in p2_type else ("_Driver::clean(s2)" if "string" in p2_type else "_Driver::parseInt(s2)")
+            call_code = f"{split_logic}    auto arg1 = {p1_expr};\n    auto arg2 = {p2_expr};\n    auto res = sol.{method_name}(arg1, arg2);"
+        else:
+            call_code = f"auto res = sol.{method_name}();"
+
+        if ret_type == "bool":
+            print_code = 'cout << (res ? "true" : "false") << "\\n";'
+        elif "vector" in ret_type:
+            print_code = """cout << "[";
+    for (size_t i = 0; i < res.size(); i++) {
+        if (i > 0) cout << ",";
+        cout << res[i];
+    }
+    cout << "]\\n";"""
+        else:
+            print_code = 'cout << res << "\\n";'
+
+        driver_body += f"    {call_code}\n    {print_code}\n    return 0;\n}}\n"
+        return driver_body
 
     @staticmethod
     def normalize_output(output: str) -> str:

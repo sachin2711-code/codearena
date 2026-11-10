@@ -318,6 +318,29 @@ class DockerSandbox:
                 runtime_ms=round((time.time() - start_time) * 1000, 2),
             )
 
+    @staticmethod
+    def _find_cpp_compiler() -> str | None:
+        """Find an available C++ compiler executable (g++, clang++, or gcc)."""
+        for name in ("g++", "clang++", "c++", "gcc"):
+            p = shutil.which(name)
+            if p:
+                return p
+        # Check standard Linux/Unix paths
+        for p in ("/usr/bin/g++", "/usr/bin/clang++", "/usr/local/bin/g++", "/usr/bin/c++"):
+            if os.path.isfile(p) and os.access(p, os.X_OK):
+                return p
+        # Check common Windows MinGW / MSYS2 paths
+        win_candidates = [
+            r"C:\MinGW\bin\g++.exe",
+            r"C:\msys64\ucrt64\bin\g++.exe",
+            r"C:\msys64\mingw64\bin\g++.exe",
+            r"C:\TDM-GCC-64\bin\g++.exe",
+        ]
+        for p in win_candidates:
+            if os.path.isfile(p):
+                return p
+        return None
+
     async def _fallback_run(
         self,
         code: str,
@@ -326,24 +349,43 @@ class DockerSandbox:
         time_limit: float = 2.0,
     ) -> ExecutionResult:
         """Fallback: run code directly via subprocess in executor thread."""
-        if language not in ("python", "javascript"):
+        if language not in ("python", "javascript", "cpp"):
             return ExecutionResult(
-                stderr=(
-                    f"Local fallback without Docker currently supports Python and JavaScript.\n"
-                    f"To run C++, please select Python in the language dropdown, install g++, or run via Docker Desktop."
-                ),
+                stderr=f"Language {language} is not supported in local fallback runner.",
                 exit_code=1,
             )
 
         tmp_dir = tempfile.mkdtemp(prefix="codearena_fallback_")
-        ext = ".py" if language == "python" else ".js"
+        ext = ".py" if language == "python" else (".js" if language == "javascript" else ".cpp")
         code_path = os.path.join(tmp_dir, f"code{ext}")
 
         try:
             with open(code_path, "w", encoding="utf-8") as f:
                 f.write(code)
 
-            cmd = [sys.executable, "-B", "-u", code_path] if language == "python" else ["node", code_path]
+            if language == "cpp":
+                compiler = self._find_cpp_compiler()
+                if not compiler:
+                    return ExecutionResult(
+                        stderr="C++ compiler (g++ / clang++) not found on server environment. Please install g++ or select Python/JavaScript.",
+                        exit_code=1,
+                    )
+                exe_ext = ".exe" if sys.platform == "win32" else ""
+                exe_path = os.path.join(tmp_dir, f"solution{exe_ext}")
+                compile_cmd = [compiler, "-O2", "-std=c++17", code_path, "-o", exe_path]
+                compile_res = subprocess.run(compile_cmd, capture_output=True, text=True, timeout=12.0)
+                if compile_res.returncode != 0:
+                    err_out = compile_res.stderr or compile_res.stdout or "C++ compilation failed."
+                    return ExecutionResult(
+                        stderr=f"Compilation error:\n{err_out[:1000]}",
+                        exit_code=compile_res.returncode,
+                    )
+                cmd = [exe_path]
+            elif language == "python":
+                cmd = [sys.executable, "-B", "-u", code_path]
+            else:
+                cmd = ["node", code_path]
+
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
                 None,
@@ -393,15 +435,12 @@ class DockerSandbox:
         concurrency: int = 6,
     ) -> list[ExecutionResult]:
         """Batch subprocess runner: writes code ONCE and runs test cases in parallel worker threads."""
-        if language not in ("python", "javascript"):
-            err_msg = (
-                f"Local fallback without Docker currently supports Python and JavaScript.\n"
-                f"To run C++, please select Python in the language dropdown, install g++, or run via Docker Desktop."
-            )
+        if language not in ("python", "javascript", "cpp"):
+            err_msg = f"Language {language} is not supported in local fallback runner."
             return [ExecutionResult(stderr=err_msg, exit_code=1) for _ in inputs]
 
         tmp_dir = tempfile.mkdtemp(prefix="codearena_batch_")
-        ext = ".py" if language == "python" else ".js"
+        ext = ".py" if language == "python" else (".js" if language == "javascript" else ".cpp")
         code_path = os.path.join(tmp_dir, f"code{ext}")
 
         try:
@@ -409,7 +448,31 @@ class DockerSandbox:
             with open(code_path, "w", encoding="utf-8") as f:
                 f.write(code)
 
-            cmd = [sys.executable, "-B", "-u", code_path] if language == "python" else ["node", code_path]
+            if language == "cpp":
+                compiler = self._find_cpp_compiler()
+                if not compiler:
+                    err_msg = "C++ compiler (g++ / clang++) not found on server environment. Please install g++ or select Python/JavaScript."
+                    return [ExecutionResult(stderr=err_msg, exit_code=1) for _ in inputs]
+
+                exe_ext = ".exe" if sys.platform == "win32" else ""
+                exe_path = os.path.join(tmp_dir, f"solution{exe_ext}")
+                compile_cmd = [compiler, "-O2", "-std=c++17", code_path, "-o", exe_path]
+                compile_res = subprocess.run(compile_cmd, capture_output=True, text=True, timeout=12.0)
+                if compile_res.returncode != 0:
+                    err_out = compile_res.stderr or compile_res.stdout or "C++ compilation failed."
+                    return [
+                        ExecutionResult(
+                            stderr=f"Compilation error:\n{err_out[:1000]}",
+                            exit_code=compile_res.returncode,
+                        )
+                        for _ in inputs
+                    ]
+                cmd = [exe_path]
+            elif language == "python":
+                cmd = [sys.executable, "-B", "-u", code_path]
+            else:
+                cmd = ["node", code_path]
+
             loop = asyncio.get_running_loop()
 
             tasks = [
