@@ -116,12 +116,16 @@ def _from_treenode(root):
 
 # CodeArena Auto-Harness
 if __name__ == '__main__':
-    import sys, json, ast, inspect, traceback
+    import sys, json, ast, inspect, traceback, re
 
     def _parse_val(raw):
         s = raw.strip()
         if not s:
             return ""
+        # Strip variable assignment: s = "babad" -> "babad"
+        m = re.match(r'^[a-zA-Z_]\w*\s*=\s*(.+)$', s, re.DOTALL)
+        if m:
+            s = m.group(1).strip()
         try:
             return json.loads(s)
         except Exception:
@@ -164,17 +168,21 @@ if __name__ == '__main__':
             parsed_args = []
 
             if raw_input:
-                lines = [l for l in raw_input.splitlines() if l.strip()]
-                if len(lines) == param_count:
+                lines = [l.strip() for l in raw_input.splitlines() if l.strip()]
+                if len(lines) == param_count and param_count > 1:
                     raw_args = [_parse_val(l) for l in lines]
-                elif param_count == 1:
-                    raw_args = [_parse_val(raw_input)]
                 else:
-                    tokens = raw_input.split()
-                    if len(tokens) == param_count:
-                        raw_args = [_parse_val(t) for t in tokens]
-                    else:
+                    split_vars = re.split(r',\s*(?=[a-zA-Z_]\w*\s*=)', raw_input)
+                    if len(split_vars) == param_count and param_count > 1:
+                        raw_args = [_parse_val(v) for v in split_vars]
+                    elif param_count == 1:
                         raw_args = [_parse_val(raw_input)]
+                    else:
+                        tokens = raw_input.split()
+                        if len(tokens) == param_count:
+                            raw_args = [_parse_val(t) for t in tokens]
+                        else:
+                            raw_args = [_parse_val(raw_input)]
 
                 for idx, arg in enumerate(raw_args):
                     if idx < len(params):
@@ -245,12 +253,15 @@ if (typeof require !== 'undefined' && typeof process !== 'undefined') {
     def normalize_output(output: str) -> str:
         """Normalize output for comparison.
 
-        Strips whitespace, matches booleans case-insensitively, and normalizes
-        JSON formatting differences.
+        Strips whitespace, surrounding quotes on strings, matches booleans case-insensitively,
+        and normalizes JSON formatting differences.
         """
         text = output.strip()
         if text.lower() in ("true", "false"):
             return text.lower()
+        # Strip surrounding double or single quotes for string equality ("bab" <-> bab)
+        if (text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'")):
+            text = text[1:-1].strip()
         lines = [line.rstrip() for line in text.splitlines()]
         norm = "\n".join(lines)
         # Normalize list/array formatting: "[0, 1]" -> "[0,1]"
