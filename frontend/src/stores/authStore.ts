@@ -33,15 +33,24 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   fetchUser: async () => {
     const token = localStorage.getItem('token');
-    if (!token) return;
-    set({ isLoading: true });
+    if (!token) {
+      set({ isLoading: false, isAuthenticated: false });
+      return;
+    }
     try {
       const user = await authApi.getMe();
       set({ user, isAuthenticated: true, isLoading: false });
       socketService.connect(token);
-    } catch (err) {
-      localStorage.removeItem('token');
-      set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    } catch (err: any) {
+      console.warn('⚠️ fetchUser warning:', err?.message);
+      // Only invalidate session on genuine 401 Unauthorized
+      if (err?.response?.status === 401) {
+        localStorage.removeItem('token');
+        set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+      } else {
+        // Keep authenticated state on network error/server wake-up delay
+        set({ isLoading: false });
+      }
     }
   },
 }));

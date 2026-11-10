@@ -1,48 +1,76 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Zap, Shield, Globe } from 'lucide-react';
+import { X, Zap, Swords, Bot, Loader2 } from 'lucide-react';
 import { socketService } from '../services/socket';
 import { useAuthStore } from '../stores/authStore';
 import { useMatchStore } from '../stores/matchStore';
+import { sound } from '../utils/sound';
 
 export const Matchmaking: React.FC = () => {
   const { user } = useAuthStore();
   const { setMatch, setSearching } = useMatchStore();
   const navigate = useNavigate();
   const [secondsElapsed, setSecondsElapsed] = useState(0);
+  const [isStartingBot, setIsStartingBot] = useState(false);
+  const matchJoinedRef = useRef(false);
 
   const userRating = user?.elo_rating || 1200;
   const minRange = Math.max(800, userRating - 100);
   const maxRange = userRating + 100;
 
+  const handleStartBotMatch = useCallback(() => {
+    setIsStartingBot(true);
+    const socket = socketService.connect();
+    socket.emit('request_practice_match');
+  }, []);
+
   useEffect(() => {
     const socket = socketService.connect();
     setSearching(true);
+    matchJoinedRef.current = false;
 
     const timer = setInterval(() => {
       setSecondsElapsed((prev) => prev + 1);
     }, 1000);
 
-    socket.emit('find_match', { elo: userRating });
-
-    socket.on('match_found', (data) => {
+    const onMatchFound = (data: any) => {
+      if (matchJoinedRef.current) return;
+      matchJoinedRef.current = true;
+      sound.playMatchFound();
       setMatch(data);
       navigate('/battle');
-    });
+    };
 
-    // Auto-match fallback for solo testing: request practice match against ArenaBot
+    socket.on('match_found', onMatchFound);
+
+    const emitSearch = () => {
+      socket.emit('find_match', { elo: userRating });
+    };
+
+    if (socket.connected) {
+      emitSearch();
+    } else {
+      socket.once('connect', emitSearch);
+    }
+
+    // Auto-match fallback: automatically challenge ArenaBot if no human found after 4s
     const fallbackTimer = setTimeout(() => {
-      socket.emit('request_practice_match');
-    }, 5000);
+      if (!matchJoinedRef.current) {
+        socket.emit('request_practice_match');
+      }
+    }, 4000);
 
     return () => {
       clearInterval(timer);
       clearTimeout(fallbackTimer);
-      socket.off('match_found');
-      socket.emit('cancel_find_match');
+      socket.off('match_found', onMatchFound);
+      socket.off('connect', emitSearch);
+      if (!matchJoinedRef.current) {
+        socket.emit('cancel_find_match');
+      }
       setSearching(false);
     };
-  }, [user, userRating, navigate, setMatch, setSearching]);
+  }, [userRating, navigate, setMatch, setSearching]);
 
   const handleCancel = () => {
     const socket = socketService.getSocket();
@@ -80,7 +108,9 @@ export const Matchmaking: React.FC = () => {
             Finding Your Opponent...
           </h2>
           <p className="text-xs text-shin-muted mt-1 font-mono">
-            Querying Redis Sorted Set with <code className="text-shin-yellow">ZRANGEBYSCORE</code>
+            {secondsElapsed > 6
+              ? 'Waking up arena server... almost ready!'
+              : 'Pairing with active contenders in your tier'}
           </p>
         </div>
 
@@ -104,13 +134,28 @@ export const Matchmaking: React.FC = () => {
           </div>
         </div>
 
-        <div>
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2.5 pt-1">
+          <button
+            onClick={handleStartBotMatch}
+            disabled={isStartingBot}
+            className="w-full py-3 px-4 rounded-xl bg-shin-yellow hover:bg-shin-yellow-soft text-shin-bg font-black text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-shin-yellow/20 disabled:opacity-50"
+            style={{ boxShadow: '2px 2px 0px #E8192C' }}
+          >
+            {isStartingBot ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Bot className="w-4 h-4" />
+            )}
+            <span>{isStartingBot ? 'Launching Duel...' : '⚡ Launch Instant ArenaBot Duel'}</span>
+          </button>
+
           <button
             onClick={handleCancel}
-            className="px-5 py-2.5 rounded-xl bg-shin-border hover:bg-shin-red/15 border-2 border-shin-border hover:border-shin-red/40 text-shin-muted hover:text-shin-red text-sm font-black transition-all inline-flex items-center gap-2"
+            className="px-4 py-2 rounded-xl bg-shin-border hover:bg-shin-red/15 border-2 border-shin-border hover:border-shin-red/40 text-shin-muted hover:text-shin-red text-xs font-black transition-all inline-flex items-center justify-center gap-1.5"
           >
             <X className="w-3.5 h-3.5" />
-            <span>Leave Queue</span>
+            <span>Cancel & Leave Queue</span>
           </button>
         </div>
       </div>

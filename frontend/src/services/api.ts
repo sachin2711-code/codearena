@@ -1,10 +1,18 @@
 import axios from 'axios';
 import { LeaderboardEntry, Match, Problem, ProblemListItem, UserProfile } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
+const RENDER_BACKEND_URL = 'https://codearena-cca4.onrender.com';
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000/api/v1'
+    : `${RENDER_BACKEND_URL}/api/v1`);
 
 export const api = axios.create({
   baseURL: API_URL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },

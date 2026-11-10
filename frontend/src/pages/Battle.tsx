@@ -44,7 +44,15 @@ export const Battle: React.FC = () => {
     const socket = socketService.connect();
 
     // Ensure socket is joined to this match's room
-    socket.emit('join_match_room', { match_id: matchId });
+    const joinRoom = () => {
+      socket.emit('join_match_room', { match_id: matchId });
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    } else {
+      socket.once('connect', joinRoom);
+    }
 
     // Listen to real-time events
     socket.on('sample_test_results', (data) => {
@@ -89,6 +97,7 @@ export const Battle: React.FC = () => {
     });
 
     return () => {
+      socket.off('connect', joinRoom);
       socket.off('sample_test_results');
       socket.off('opponent_progress');
       socket.off('submission_verdict');
