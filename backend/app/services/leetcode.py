@@ -171,6 +171,14 @@ class LeetCodeService:
         for inp, out in matches:
             inp_clean = inp.strip().replace('`', '').replace('**', '')
             out_clean = out.strip().replace('`', '').replace('**', '')
+            # Strip trailing explanation sentences from expected output
+            if "Explanation:" in out_clean:
+                out_clean = out_clean.split("Explanation:", 1)[0].strip()
+            # If multiple lines, keep only the first output value line
+            out_lines = [l.strip() for l in out_clean.splitlines() if l.strip()]
+            if out_lines:
+                out_clean = out_lines[0]
+
             if inp_clean and out_clean:
                 examples.append({
                     "input": inp_clean,

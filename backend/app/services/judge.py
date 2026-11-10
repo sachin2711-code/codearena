@@ -54,6 +54,11 @@ class TreeNode:
         self.left = left
         self.right = right
 
+class Node:
+    def __init__(self, val=0, children=None):
+        self.val = val
+        self.children = children if children is not None else []
+
 def _to_listnode(arr):
     if not arr or not isinstance(arr, list):
         return None
@@ -140,9 +145,10 @@ if __name__ == '__main__':
 
     def _convert_arg(val, param):
         ann_str = str(param.annotation)
-        if "ListNode" in ann_str and isinstance(val, list):
+        p_name = param.name.lower()
+        if ("ListNode" in ann_str or "list" in p_name or "head" in p_name) and isinstance(val, list):
             return _to_listnode(val)
-        elif "TreeNode" in ann_str and isinstance(val, list):
+        elif ("TreeNode" in ann_str or "root" in p_name or "tree" in p_name) and isinstance(val, list):
             return _to_treenode(val)
         return val
 
@@ -190,6 +196,9 @@ if __name__ == '__main__':
                     else:
                         parsed_args.append(arg)
 
+            first_arg = parsed_args[0] if parsed_args else None
+            initial_val = list(first_arg) if isinstance(first_arg, list) else None
+
             res = target_fn(*parsed_args)
 
             ret_ann = str(sig.return_annotation)
@@ -206,7 +215,10 @@ if __name__ == '__main__':
                 else:
                     print(res)
             else:
-                print("null")
+                if initial_val is not None and isinstance(first_arg, list):
+                    print(json.dumps(first_arg, separators=(',', ':')))
+                else:
+                    print("null")
     except Exception as _err:
         traceback.print_exc(file=sys.stderr)
 """
