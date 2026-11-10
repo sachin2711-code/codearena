@@ -1,3 +1,4 @@
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 from app.config import get_settings
@@ -10,6 +11,16 @@ if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
 elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+# asyncpg requires 'ssl' instead of 'sslmode'
+parsed = urlparse(db_url)
+query_dict = parse_qs(parsed.query)
+if "sslmode" in query_dict:
+    ssl_val = query_dict.pop("sslmode")[0]
+    if "ssl" not in query_dict:
+        query_dict["ssl"] = [ssl_val]
+    new_query = urlencode(query_dict, doseq=True)
+    db_url = urlunparse(parsed._replace(query=new_query))
 
 connect_args = {}
 if db_url.startswith("sqlite"):
