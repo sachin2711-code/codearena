@@ -121,6 +121,12 @@ fastapi_app.include_router(matches_router, prefix="/api/v1")
 fastapi_app.include_router(leaderboard_router, prefix="/api/v1")
 
 
+@fastapi_app.get("/")
+async def root():
+    """Root endpoint for status check."""
+    return {"status": "online", "service": "CodeArena API", "version": "1.0.0", "docs": "/docs"}
+
+
 @fastapi_app.get("/health")
 async def health_check():
     """Health check endpoint for container orchestrators."""
