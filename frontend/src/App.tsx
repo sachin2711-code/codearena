@@ -27,7 +27,7 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AnimatedCursor />
-      <div className="min-h-screen bg-[#090a0f] text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-300">
+      <div className="min-h-screen bg-shin-bg text-shin-white flex flex-col font-sans selection:bg-shin-yellow/20 selection:text-shin-yellow">
         <Navbar />
         <main className="flex-1">
           <Routes>
@@ -54,21 +54,22 @@ export const App: React.FC = () => {
         </main>
 
         {/* Minimal Platform Footer */}
-        <footer className="border-t border-zinc-900 bg-[#090a0f] py-4 text-xs font-mono text-zinc-500">
+        <footer className="border-t-2 border-shin-border bg-shin-panel py-4 text-xs font-mono text-shin-muted">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div>
-              <span>CodeArena © 2026 • Real-time Algorithmic 1v1 Battleground</span>
+            <div className="flex items-center gap-2">
+              <span className="text-shin-yellow font-black">⚡</span>
+              <span className="font-bold">CodeArena © 2026 • Real-time 1v1 Algorithmic Battleground</span>
             </div>
-            <div className="flex items-center gap-4">
-              <a href="/terms" className="hover:text-zinc-300 transition-colors">Terms</a>
-              <span className="text-zinc-700">•</span>
-              <a href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</a>
-              <span className="text-zinc-700">•</span>
+            <div className="flex items-center gap-4 font-bold">
+              <a href="/terms" className="hover:text-shin-yellow transition-colors">Terms</a>
+              <span className="text-shin-border">•</span>
+              <a href="/privacy" className="hover:text-shin-yellow transition-colors">Privacy</a>
+              <span className="text-shin-border">•</span>
               <a
                 href="https://github.com/sachin2711-code/codearena"
                 target="_blank"
                 rel="noreferrer"
-                className="hover:text-zinc-300 transition-colors"
+                className="hover:text-shin-yellow transition-colors"
               >
                 GitHub
               </a>

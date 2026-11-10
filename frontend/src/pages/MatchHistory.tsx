@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { History, Swords, ExternalLink } from 'lucide-react';
+import { History, ExternalLink } from 'lucide-react';
 import { matchesApi } from '../services/api';
 import { Match } from '../types';
 import { useAuthStore } from '../stores/authStore';
@@ -27,27 +27,31 @@ export const MatchHistory: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6 font-sans">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
-          <History className="w-5 h-5 text-zinc-400" />
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-shin-panel border-2 border-shin-blue/30 flex items-center justify-center shadow-lg shadow-shin-blue/10">
+          <History className="w-6 h-6 text-shin-blue" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight font-mono">Match Archive</h1>
-          <p className="text-xs text-zinc-400">Chronological history of 1v1 competitive coding duels</p>
+          <h1 className="text-2xl font-black text-white tracking-tight">Battle Archive</h1>
+          <p className="text-xs text-shin-muted font-mono font-bold">Chronological history of 1v1 competitive coding duels</p>
         </div>
       </div>
 
-      <div className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden font-mono text-xs">
+      {/* Match List */}
+      <div className="bg-shin-panel border-2 border-shin-border rounded-2xl overflow-hidden">
         {loading ? (
-          <div className="py-16 flex justify-center">
-            <div className="w-5 h-5 border-2 border-zinc-600 border-t-white rounded-full animate-spin" />
+          <div className="py-20 flex justify-center">
+            <div className="w-6 h-6 border-2 border-shin-border border-t-shin-yellow rounded-full animate-spin" />
           </div>
         ) : matches.length === 0 ? (
-          <div className="text-center py-16 text-zinc-500">
-            <p>No contest sessions found.</p>
+          <div className="text-center py-20 space-y-3">
+            <div className="text-5xl">⚔️</div>
+            <p className="text-shin-muted font-black text-sm">No battles recorded yet.</p>
+            <p className="text-shin-muted/60 font-mono text-xs">Your match history will appear here after your first duel.</p>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-800/80">
+          <div className="divide-y divide-shin-border">
             {matches.map((m) => {
               const isWinner = m.winner_id === user?.id;
               const isCompleted = m.status === 'completed';
@@ -61,36 +65,40 @@ export const MatchHistory: React.FC = () => {
                 <div
                   key={m.id}
                   onClick={() => navigate(`/analysis/${m.id}`)}
-                  className="px-5 py-3.5 flex items-center justify-between hover:bg-zinc-900/40 cursor-pointer transition-colors"
+                  className="px-5 py-4 flex items-center justify-between hover:bg-shin-yellow/5 cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center gap-4">
+                    {/* Result badge */}
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      className={`w-16 text-center px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider flex-shrink-0 ${
                         isWinner
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          ? 'bg-shin-yellow/15 text-shin-yellow border border-shin-yellow/30'
                           : isActive
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                          ? 'bg-shin-blue/15 text-shin-blue border border-shin-blue/30'
                           : isDraw
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          ? 'bg-shin-muted/15 text-shin-muted border border-shin-muted/30'
+                          : 'bg-shin-red/15 text-shin-red border border-shin-red/30'
                       }`}
                     >
-                      {isWinner ? 'AC • WIN' : isActive ? 'ACTIVE' : isDraw ? 'DRAW' : 'WA • LOSS'}
+                      {isWinner ? '✓ WIN' : isActive ? '● LIVE' : isDraw ? '— DRAW' : '✗ LOSS'}
                     </span>
+
                     <div>
-                      <div className="text-zinc-200 font-sans font-medium text-sm flex items-center gap-2">
+                      <div className="text-shin-white font-bold text-sm flex items-center gap-2">
                         <span>{title}</span>
-                        <span className="text-xs text-zinc-500 font-mono font-normal">vs {opponent}</span>
+                        <span className="text-xs text-shin-muted font-mono font-normal">vs {opponent}</span>
                       </div>
-                      <div className="text-zinc-500 text-[11px] font-mono">
+                      <div className="text-shin-muted text-[11px] font-mono mt-0.5">
                         {m.created_at ? new Date(m.created_at).toLocaleString() : 'Recent'}
-                        {m.duration_seconds ? ` • ${Math.floor(m.duration_seconds / 60)}m ${m.duration_seconds % 60}s` : ''}
+                        {m.duration_seconds
+                          ? ` • ${Math.floor(m.duration_seconds / 60)}m ${m.duration_seconds % 60}s`
+                          : ''}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-zinc-400 hover:text-emerald-400 text-xs transition-colors">
-                    <span>Editorial</span>
+                  <div className="flex items-center gap-1.5 text-shin-muted group-hover:text-shin-yellow text-xs font-black transition-colors flex-shrink-0">
+                    <span>Review</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </div>
                 </div>

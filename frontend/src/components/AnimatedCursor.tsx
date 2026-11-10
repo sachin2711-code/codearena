@@ -71,7 +71,7 @@ export const AnimatedCursor: React.FC = () => {
       if (ringRef.current) {
         const scale = isClicked.current ? 0.75 : isHovered.current ? 1.6 : 1;
         const opacity = isHovered.current ? '0.9' : '0.45';
-        const borderColor = isHovered.current ? '#34d399' : '#10b981';
+        const borderColor = isHovered.current ? '#FFD700' : '#FFE566';
 
         ringRef.current.style.transform = `translate3d(${nextX}px, ${nextY}px, 0) scale(${scale})`;
         ringRef.current.style.opacity = opacity;
@@ -100,7 +100,7 @@ export const AnimatedCursor: React.FC = () => {
       {/* Outer Spring Ring */}
       <div
         ref={ringRef}
-        className="fixed top-0 left-0 -ml-4 -mt-4 w-8 h-8 rounded-full border border-emerald-500/60 transition-[border-color,opacity] duration-150 ease-out will-change-transform"
+        className="fixed top-0 left-0 -ml-4 -mt-4 w-8 h-8 rounded-full border border-shin-yellow/60 transition-[border-color,opacity] duration-150 ease-out will-change-transform"
         style={{
           boxShadow: isHovered.current ? '0 0 16px rgba(16, 185, 129, 0.25)' : 'none',
         }}
@@ -109,7 +109,7 @@ export const AnimatedCursor: React.FC = () => {
       {/* Central Laser Point */}
       <div
         ref={dotRef}
-        className="fixed top-0 left-0 -ml-1 -mt-1 w-2 h-2 rounded-full bg-emerald-400 will-change-transform shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+        className="fixed top-0 left-0 -ml-1 -mt-1 w-2 h-2 rounded-full bg-shin-yellow will-change-transform shadow-[0_0_8px_rgba(255,215,0,0.9)]"
       />
     </div>
   );

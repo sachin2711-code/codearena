@@ -165,28 +165,28 @@ export const Battle: React.FC = () => {
   const isDraw = !winnerId && showResultModal;
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-[#090a0f] text-zinc-100 overflow-hidden font-sans">
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-shin-bg text-shin-white overflow-hidden font-sans">
       {/* Top Match HUD Bar */}
-      <div className="h-12 bg-[#0d0e12] border-b border-zinc-800 px-4 flex items-center justify-between shrink-0 font-mono text-xs">
+      <div className="h-12 bg-shin-panel border-b-2 border-shin-border px-4 flex items-center justify-between shrink-0 font-mono text-xs">
         {/* Left: Scoreboard */}
         <div className="flex items-center gap-6">
           {/* User status */}
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span className="font-bold text-zinc-200">{user?.username || 'You'}</span>
-            <span className="text-[11px] px-1.5 py-0.2 rounded bg-zinc-800 text-emerald-400 font-mono">
-              {myProgress.passed}/{myProgress.total || 5} AC
+            <span className="w-2 h-2 rounded-full bg-shin-yellow" />
+            <span className="font-black text-shin-white">{user?.username || 'You'}</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded-lg bg-shin-yellow/15 text-shin-yellow border border-shin-yellow/30 font-black">
+              {myProgress.passed}/{myProgress.total || 5} ✓
             </span>
           </div>
 
-          <div className="text-zinc-600 font-bold">vs</div>
+          <div className="text-shin-border font-black">vs</div>
 
           {/* Opponent status */}
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <span className="font-bold text-zinc-400">Opponent</span>
-            <span className="text-[11px] px-1.5 py-0.2 rounded bg-zinc-800 text-amber-400 font-mono">
-              {opponentProgress.passed}/{opponentProgress.total || 5} AC
+            <span className="w-2 h-2 rounded-full bg-shin-red" />
+            <span className="font-black text-shin-muted">Opponent</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded-lg bg-shin-red/15 text-shin-red border border-shin-red/30 font-black">
+              {opponentProgress.passed}/{opponentProgress.total || 5}
             </span>
           </div>
         </div>
@@ -197,11 +197,11 @@ export const Battle: React.FC = () => {
 
           <button
             onClick={handleForfeit}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-900 transition-colors text-[11px]"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border-2 border-shin-border text-shin-muted hover:text-shin-red hover:border-shin-red/40 transition-all text-[11px] font-black"
             title="Surrender duel"
           >
             <Flag className="w-3 h-3" />
-            <span>Surrender</span>
+            <span>Forfeit</span>
           </button>
         </div>
       </div>
@@ -214,9 +214,9 @@ export const Battle: React.FC = () => {
         </div>
 
         {/* Right: Code Editor + Runner (58%) */}
-        <div className="w-[58%] h-full flex flex-col border-l border-zinc-800 overflow-hidden bg-[#1e1e1e]">
+        <div className="w-[58%] h-full flex flex-col border-l-2 border-shin-border overflow-hidden bg-[#1e1e1e]">
           {/* Editor Header controls */}
-          <div className="h-10 bg-[#14151b] border-b border-zinc-800 px-4 flex items-center justify-between shrink-0 font-mono text-xs">
+          <div className="h-10 bg-shin-panel border-b-2 border-shin-border px-4 flex items-center justify-between shrink-0 font-mono text-xs">
             <div className="flex items-center gap-3">
               <select
                 value={language}
@@ -227,7 +227,7 @@ export const Battle: React.FC = () => {
                     setCode(problem.starter_code[newLang]);
                   }
                 }}
-                className="bg-zinc-900 border border-zinc-700/80 rounded px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 font-mono"
+                className="bg-shin-bg border-2 border-shin-border rounded-xl px-2.5 py-1 text-xs text-shin-white focus:outline-none focus:border-shin-yellow/50 font-mono font-bold"
               >
                 <option value="python">Python 3.11</option>
                 <option value="javascript">Node.js 20</option>
@@ -236,7 +236,7 @@ export const Battle: React.FC = () => {
 
               <button
                 onClick={handleResetCode}
-                className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                className="text-shin-muted hover:text-shin-yellow transition-colors p-1"
                 title="Reset to template"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -244,26 +244,27 @@ export const Battle: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="hidden lg:inline text-[11px] text-zinc-500">
-                Run <kbd className="px-1 py-0.5 bg-zinc-800 rounded border border-zinc-700 text-zinc-400 font-mono">Ctrl+'</kbd>
+              <span className="hidden lg:inline text-[11px] text-shin-muted">
+                Run <kbd className="px-1 py-0.5 bg-shin-border rounded border border-shin-border text-shin-muted font-mono">Ctrl+'</kbd>
               </span>
 
               <button
                 onClick={handleRunSampleTests}
                 disabled={isRunningTests || isSubmitting}
-                className="flex items-center gap-1.5 px-3 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-shin-border hover:bg-shin-blue/20 hover:border-shin-blue/40 text-xs font-black text-shin-white border-2 border-shin-border transition-all disabled:opacity-50"
               >
-                <Play className="w-3 h-3 text-zinc-400 fill-zinc-400" />
+                <Play className="w-3 h-3 text-shin-blue fill-shin-blue" />
                 <span>{isRunningTests ? 'Testing...' : 'Run Samples'}</span>
               </button>
 
               <button
                 onClick={handleSubmit}
                 disabled={isRunningTests || isSubmitting}
-                className="flex items-center gap-1.5 px-3.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-xs font-bold text-zinc-950 transition-colors disabled:opacity-50 shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 py-1 rounded-xl bg-shin-yellow hover:bg-shin-yellow-soft text-xs font-black text-shin-bg transition-all disabled:opacity-50 shadow-md shadow-shin-yellow/20"
+                style={{ boxShadow: '2px 2px 0px #E8192C' }}
               >
                 <Send className="w-3 h-3" />
-                <span>{isSubmitting ? 'Evaluating...' : 'Submit'}</span>
+                <span>{isSubmitting ? 'Judging...' : 'Submit'}</span>
               </button>
             </div>
           </div>
@@ -278,23 +279,23 @@ export const Battle: React.FC = () => {
           </div>
 
           {/* Bottom Execution Console */}
-          <div className="h-48 bg-[#0e0f14] border-t border-zinc-800 flex flex-col shrink-0 font-mono text-xs">
+          <div className="h-48 bg-shin-bg border-t-2 border-shin-border flex flex-col shrink-0 font-mono text-xs">
             {/* Console Toolbar */}
-            <div className="h-8 bg-[#121319] px-4 flex items-center justify-between border-b border-zinc-800/80 text-[11px]">
-              <div className="flex items-center gap-2 text-zinc-400">
-                <Terminal className="w-3.5 h-3.5 text-zinc-500" />
-                <span className="font-bold text-zinc-300">Execution Console</span>
+            <div className="h-8 bg-shin-panel px-4 flex items-center justify-between border-b border-shin-border text-[11px]">
+              <div className="flex items-center gap-2 text-shin-muted">
+                <Terminal className="w-3.5 h-3.5 text-shin-yellow" />
+                <span className="font-black text-shin-white">Execution Console</span>
               </div>
 
               {submissionVerdict && (
                 <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase ${
                     submissionVerdict === 'accepted'
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                      : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      ? 'bg-shin-yellow/15 text-shin-yellow border border-shin-yellow/30'
+                      : 'bg-shin-red/15 text-shin-red border border-shin-red/30'
                   }`}
                 >
-                  Verdict: {submissionVerdict.replace('_', ' ')}
+                  {submissionVerdict === 'accepted' ? '✓' : '✗'} {submissionVerdict.replace('_', ' ')}
                 </span>
               )}
             </div>
@@ -302,40 +303,40 @@ export const Battle: React.FC = () => {
             {/* Test Results Output */}
             <div className="flex-1 p-3.5 overflow-y-auto space-y-2">
               {testResults.length === 0 ? (
-                <div className="text-zinc-600 italic py-2">
-                  No execution yet. Click "Run Samples" or press <kbd className="px-1 py-0.2 bg-zinc-800 rounded text-zinc-400">Ctrl+'</kbd> to evaluate sample cases.
+                <div className="text-shin-muted italic py-2">
+                  No execution yet. Click "Run Samples" or press <kbd className="px-1 py-0.5 bg-shin-border rounded text-shin-muted">Ctrl+'</kbd> to evaluate sample cases.
                 </div>
               ) : (
                 <div className="space-y-2">
                   {testResults.map((t, idx) => (
                     <div
                       key={idx}
-                      className={`p-2 rounded border text-[11px] ${
+                      className={`p-2 rounded-xl border text-[11px] ${
                         t.passed
-                          ? 'bg-emerald-950/20 border-emerald-800/30'
-                          : 'bg-rose-950/20 border-rose-800/30'
+                          ? 'bg-shin-yellow/8 border-shin-yellow/20'
+                          : 'bg-shin-red/8 border-shin-red/20'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5 font-bold">
+                        <div className="flex items-center gap-1.5 font-black">
                           {t.passed ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-shin-yellow" />
                           ) : (
-                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                            <XCircle className="w-3.5 h-3.5 text-shin-red" />
                           )}
-                          <span className={t.passed ? 'text-emerald-300' : 'text-rose-300'}>
+                          <span className={t.passed ? 'text-shin-yellow' : 'text-shin-red'}>
                             Test Case #{idx + 1}
                           </span>
                         </div>
-                        <span className="text-zinc-500 text-[10px]">
+                        <span className="text-shin-muted text-[10px]">
                           {t.runtime_ms?.toFixed(1)} ms
                         </span>
                       </div>
 
                       {!t.passed && (
-                        <div className="text-zinc-400 space-y-0.5 font-mono pt-1 text-[11px]">
-                          <div>Expected: <span className="text-emerald-400">{t.expected}</span></div>
-                          <div>Actual: <span className="text-rose-400">{t.actual || t.error || 'Empty'}</span></div>
+                        <div className="text-shin-muted space-y-0.5 font-mono pt-1 text-[11px]">
+                          <div>Expected: <span className="text-shin-yellow">{t.expected}</span></div>
+                          <div>Actual: <span className="text-shin-red">{t.actual || t.error || 'Empty'}</span></div>
                         </div>
                       )}
                     </div>
@@ -349,55 +350,57 @@ export const Battle: React.FC = () => {
 
       {/* Match Conclusion Dialog */}
       {showResultModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121319] border border-zinc-800 rounded-xl max-w-md w-full p-6 text-center space-y-5 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-shin-panel border-2 border-shin-yellow/30 rounded-2xl max-w-md w-full p-7 text-center space-y-5 shadow-2xl relative"
+            style={{ boxShadow: '8px 8px 0px #1a1740, 0 0 50px rgba(255,215,0,0.12)' }}>
             <div
-              className={`w-14 h-14 mx-auto rounded-xl flex items-center justify-center ${
+              className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center text-3xl ${
                 isWinner
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-shin-yellow shadow-lg shadow-shin-yellow/40 animate-shin-bounce'
                   : isDraw
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                  ? 'bg-shin-border'
+                  : 'bg-shin-red/20 border-2 border-shin-red/40'
               }`}
             >
-              {isWinner ? <Trophy className="w-7 h-7" /> : <AlertCircle className="w-7 h-7" />}
+              {isWinner ? '🏆' : isDraw ? '🤝' : '💀'}
             </div>
 
             <div>
-              <h2 className="text-2xl font-bold tracking-tight text-white font-mono">
-                {isWinner ? 'ACCEPTED • VICTORY' : isDraw ? 'MATCH DRAW' : 'DEFEAT'}
+              <h2 className={`text-2xl font-black tracking-tight ${isWinner ? 'text-shin-yellow' : isDraw ? 'text-shin-muted' : 'text-shin-red'}`}>
+                {isWinner ? '⚡ VICTORY!' : isDraw ? 'MATCH DRAW' : 'DEFEATED'}
               </h2>
-              <p className="text-xs text-zinc-400 mt-1 font-sans">
+              <p className="text-xs text-shin-muted mt-2 font-semibold">
                 {isWinner
-                  ? 'All test cases satisfied. ELO rating adjusted.'
-                  : 'Duel completed. Review the algorithmic editorial to master the optimal approach.'}
+                  ? 'All test cases passed. ELO rating updated. Nicely done!'
+                  : 'Review the editorial to master the optimal approach.'}
               </p>
             </div>
 
-            <div className="flex flex-col gap-2.5 pt-2">
+            <div className="flex flex-col gap-2.5 pt-1">
               {isWinner && (
                 <button
                   onClick={handleShareVictory}
-                  className="w-full py-2.5 rounded-lg bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/40 text-[#25D366] font-mono text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border-2 border-[#25D366]/40 text-[#25D366] font-black text-xs transition-all flex items-center justify-center gap-1.5"
                 >
                   <Share2 className="w-3.5 h-3.5" />
-                  <span>Share Victory on WhatsApp</span>
+                  <span>Share on WhatsApp</span>
                 </button>
               )}
 
               <button
                 onClick={() => navigate(`/analysis/${matchId}`)}
-                className="w-full py-2.5 rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 font-mono font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl bg-shin-yellow hover:bg-shin-yellow-soft text-shin-bg font-black text-sm transition-all flex items-center justify-center gap-2"
+                style={{ boxShadow: '3px 3px 0px #E8192C' }}
               >
-                <span>View Algorithmic Review</span>
+                <span>View Editorial</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
 
               <button
                 onClick={() => navigate('/dashboard')}
-                className="w-full py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-mono text-xs transition-colors"
+                className="w-full py-2 rounded-xl bg-shin-border hover:bg-shin-border/80 border-2 border-shin-border text-shin-muted hover:text-shin-white font-black text-xs transition-all"
               >
-                Back to Arena Dashboard
+                Back to Arena
               </button>
             </div>
           </div>

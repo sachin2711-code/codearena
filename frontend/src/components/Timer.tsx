@@ -28,13 +28,13 @@ export const Timer: React.FC<TimerProps> = ({ initialSeconds, onTimeUp }) => {
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-bold text-sm tracking-wider transition-colors ${
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 font-mono font-black text-sm tracking-wider transition-all ${
         isUrgent
-          ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 animate-pulse'
-          : 'bg-gray-800/80 border-gray-700/80 text-gray-200'
+          ? 'bg-shin-red/15 border-shin-red/40 text-shin-red animate-pulse'
+          : 'bg-shin-yellow/10 border-shin-yellow/30 text-shin-yellow'
       }`}
     >
-      <Clock className={`w-4 h-4 ${isUrgent ? 'text-rose-400' : 'text-purple-400'}`} />
+      <Clock className={`w-4 h-4 ${isUrgent ? 'text-shin-red' : 'text-shin-yellow'}`} />
       <span>
         {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
       </span>
