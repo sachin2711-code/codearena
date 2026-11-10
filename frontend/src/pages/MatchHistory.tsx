@@ -50,7 +50,12 @@ export const MatchHistory: React.FC = () => {
           <div className="divide-y divide-zinc-800/80">
             {matches.map((m) => {
               const isWinner = m.winner_id === user?.id;
-              const isDraw = !m.winner_id && m.status === 'completed';
+              const isCompleted = m.status === 'completed';
+              const isDraw = !m.winner_id && isCompleted;
+              const isActive = m.status === 'active';
+
+              const title = m.problem_title || m.problem?.title || `Duel #${m.id.slice(0, 8)}`;
+              const opponent = m.opponent_username || (m.player1_id === user?.id ? m.player2?.username : m.player1?.username) || 'ArenaBot';
 
               return (
                 <div
@@ -63,19 +68,23 @@ export const MatchHistory: React.FC = () => {
                       className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                         isWinner
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : isActive
+                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                           : isDraw
                           ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                           : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                       }`}
                     >
-                      {isWinner ? 'AC • WIN' : isDraw ? 'DRAW' : 'WA • LOSS'}
+                      {isWinner ? 'AC • WIN' : isActive ? 'ACTIVE' : isDraw ? 'DRAW' : 'WA • LOSS'}
                     </span>
                     <div>
-                      <div className="text-zinc-200 font-sans font-medium text-sm">
-                        Duel #{m.id.slice(0, 8)}
+                      <div className="text-zinc-200 font-sans font-medium text-sm flex items-center gap-2">
+                        <span>{title}</span>
+                        <span className="text-xs text-zinc-500 font-mono font-normal">vs {opponent}</span>
                       </div>
-                      <div className="text-zinc-500 text-[11px]">
+                      <div className="text-zinc-500 text-[11px] font-mono">
                         {m.created_at ? new Date(m.created_at).toLocaleString() : 'Recent'}
+                        {m.duration_seconds ? ` • ${Math.floor(m.duration_seconds / 60)}m ${m.duration_seconds % 60}s` : ''}
                       </div>
                     </div>
                   </div>

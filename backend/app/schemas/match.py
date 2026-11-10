@@ -14,6 +14,8 @@ class MatchResponse(BaseModel):
     player1_id: uuid.UUID
     player2_id: uuid.UUID
     problem_id: uuid.UUID | None = None
+    problem_title: str | None = None
+    opponent_username: str | None = None
     winner_id: uuid.UUID | None = None
     status: str
     started_at: datetime | None = None

@@ -37,6 +37,12 @@ async def get_my_match_history(
     stmt = (
         select(Match)
         .where(filter_condition)
+        .options(
+            selectinload(Match.player1),
+            selectinload(Match.player2),
+            selectinload(Match.problem),
+            selectinload(Match.winner),
+        )
         .order_by(Match.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -44,21 +50,25 @@ async def get_my_match_history(
     result = await db.execute(stmt)
     matches = result.scalars().all()
 
-    items = [
-        MatchResponse(
-            id=m.id,
-            player1_id=m.player1_id,
-            player2_id=m.player2_id,
-            problem_id=m.problem_id,
-            winner_id=m.winner_id,
-            status=m.status,
-            started_at=m.started_at,
-            ended_at=m.ended_at,
-            duration_seconds=m.duration_seconds,
-            created_at=m.created_at,
+    items = []
+    for m in matches:
+        opp = m.player2 if m.player1_id == current_user.id else m.player1
+        items.append(
+            MatchResponse(
+                id=m.id,
+                player1_id=m.player1_id,
+                player2_id=m.player2_id,
+                problem_id=m.problem_id,
+                problem_title=m.problem.title if m.problem else "Competitive Duel",
+                opponent_username=opp.username if opp else "ArenaBot",
+                winner_id=m.winner_id,
+                status=m.status,
+                started_at=m.started_at,
+                ended_at=m.ended_at,
+                duration_seconds=m.duration_seconds,
+                created_at=m.created_at,
+            )
         )
-        for m in matches
-    ]
 
     return MatchHistoryResponse(
         matches=items,

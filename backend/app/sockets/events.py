@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 import socketio
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -454,8 +455,12 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                 if match_uuid:
                     match = await db.get(Match, match_uuid)
                     if match and match.status != "completed":
+                        now_utc = datetime.now(timezone.utc)
                         match.status = "completed"
                         match.winner_id = user_id
+                        match.ended_at = now_utc
+                        if match.started_at:
+                            match.duration_seconds = max(1, int((now_utc - match.started_at).total_seconds()))
                         await db.commit()
 
                         # Update ELO ratings
@@ -495,9 +500,13 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
         async with async_session_maker() as db:
             match = await db.get(Match, match_id)
             if match and match.status != "completed":
+                now_utc = datetime.now(timezone.utc)
                 match.status = "completed"
                 winner_id = match.player2_id if match.player1_id == user_id else match.player1_id
                 match.winner_id = winner_id
+                match.ended_at = now_utc
+                if match.started_at:
+                    match.duration_seconds = max(1, int((now_utc - match.started_at).total_seconds()))
                 await db.commit()
 
                 room = f"match_{match_id}"

@@ -56,6 +56,8 @@ export interface Match {
   player1_id: string;
   player2_id: string;
   problem_id?: string;
+  problem_title?: string;
+  opponent_username?: string;
   winner_id?: string | null;
   status: 'waiting' | 'active' | 'completed' | 'cancelled';
   started_at?: string;

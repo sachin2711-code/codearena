@@ -199,7 +199,7 @@ class MatchmakingService:
             started_at=now,
         )
         db.add(match)
-        await db.flush()
+        await db.commit()
         await db.refresh(match)
 
         logger.info(
