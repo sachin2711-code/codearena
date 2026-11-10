@@ -40,11 +40,83 @@ class JudgeService:
             if ("sys.stdin" in code or "input(" in code) and "__main__" in code:
                 return code
 
+            preamble = """
+from typing import *
+
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+def _to_listnode(arr):
+    if not arr or not isinstance(arr, list):
+        return None
+    head = ListNode(arr[0])
+    curr = head
+    for v in arr[1:]:
+        curr.next = ListNode(v)
+        curr = curr.next
+    return head
+
+def _from_listnode(head):
+    if head is None:
+        return []
+    res = []
+    curr = head
+    visited = set()
+    while curr and id(curr) not in visited:
+        visited.add(id(curr))
+        res.append(curr.val)
+        curr = curr.next
+    return res
+
+def _to_treenode(arr):
+    if not arr or not isinstance(arr, list):
+        return None
+    root = TreeNode(arr[0])
+    queue = [root]
+    i = 1
+    while queue and i < len(arr):
+        node = queue.pop(0)
+        if i < len(arr) and arr[i] is not None:
+            node.left = TreeNode(arr[i])
+            queue.append(node.left)
+        i += 1
+        if i < len(arr) and arr[i] is not None:
+            node.right = TreeNode(arr[i])
+            queue.append(node.right)
+        i += 1
+    return root
+
+def _from_treenode(root):
+    if not root:
+        return []
+    res = []
+    queue = [root]
+    while queue:
+        node = queue.pop(0)
+        if node:
+            res.append(node.val)
+            queue.append(node.left)
+            queue.append(node.right)
+        else:
+            res.append(None)
+    while res and res[-1] is None:
+        res.pop()
+    return res
+"""
+
             harness = """
 
 # CodeArena Auto-Harness
 if __name__ == '__main__':
-    import sys, json, ast, inspect
+    import sys, json, ast, inspect, traceback
 
     def _parse_val(raw):
         s = raw.strip()
@@ -61,6 +133,14 @@ if __name__ == '__main__':
         if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
             return s[1:-1]
         return s
+
+    def _convert_arg(val, param):
+        ann_str = str(param.annotation)
+        if "ListNode" in ann_str and isinstance(val, list):
+            return _to_listnode(val)
+        elif "TreeNode" in ann_str and isinstance(val, list):
+            return _to_treenode(val)
+        return val
 
     try:
         raw_input = sys.stdin.read().strip()
@@ -79,23 +159,37 @@ if __name__ == '__main__':
 
         if target_fn:
             sig = inspect.signature(target_fn)
-            param_count = len(sig.parameters)
-            args = []
+            params = list(sig.parameters.values())
+            param_count = len(params)
+            parsed_args = []
 
             if raw_input:
                 lines = [l for l in raw_input.splitlines() if l.strip()]
                 if len(lines) == param_count:
-                    args = [_parse_val(l) for l in lines]
+                    raw_args = [_parse_val(l) for l in lines]
                 elif param_count == 1:
-                    args = [_parse_val(raw_input)]
+                    raw_args = [_parse_val(raw_input)]
                 else:
                     tokens = raw_input.split()
                     if len(tokens) == param_count:
-                        args = [_parse_val(t) for t in tokens]
+                        raw_args = [_parse_val(t) for t in tokens]
                     else:
-                        args = [_parse_val(raw_input)]
+                        raw_args = [_parse_val(raw_input)]
 
-            res = target_fn(*args)
+                for idx, arg in enumerate(raw_args):
+                    if idx < len(params):
+                        parsed_args.append(_convert_arg(arg, params[idx]))
+                    else:
+                        parsed_args.append(arg)
+
+            res = target_fn(*parsed_args)
+
+            ret_ann = str(sig.return_annotation)
+            if "ListNode" in ret_ann or isinstance(res, ListNode):
+                res = _from_listnode(res)
+            elif "TreeNode" in ret_ann or isinstance(res, TreeNode):
+                res = _from_treenode(res)
+
             if isinstance(res, bool):
                 print("true" if res else "false")
             elif res is not None:
@@ -103,11 +197,12 @@ if __name__ == '__main__':
                     print(json.dumps(res, separators=(',', ':')))
                 else:
                     print(res)
+            else:
+                print("null")
     except Exception as _err:
-        import traceback
         traceback.print_exc(file=sys.stderr)
 """
-            return code + "\n" + harness
+            return preamble + "\n" + code + "\n" + harness
 
         elif language == "javascript":
             if "fs.readFileSync" in code:
