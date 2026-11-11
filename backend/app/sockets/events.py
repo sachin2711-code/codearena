@@ -44,11 +44,24 @@ user_submission_history: dict[str, list[float]] = {}
 def register_socket_events(server: socketio.AsyncServer) -> None:
     """Register all Socket.IO event handlers."""
 
+    def _resolve_user_id(sid: str, data: dict | None = None) -> uuid.UUID | None:
+        """Resolve user_id from sid or fallback to token in payload."""
+        if data and isinstance(data, dict) and data.get("token"):
+            try:
+                claims = verify_token(data["token"])
+                token_uid = uuid.UUID(claims["sub"])
+                sid_to_user[sid] = token_uid
+                user_to_sid[str(token_uid)] = sid
+                return token_uid
+            except Exception:
+                pass
+        return sid_to_user.get(sid)
+
     @server.event
     async def connect(sid: str, environ: dict, auth: dict | None = None) -> bool:
         """Handle client connection with JWT authentication."""
         token = None
-        if auth and "token" in auth:
+        if auth and isinstance(auth, dict) and "token" in auth:
             token = auth["token"]
         elif "HTTP_AUTHORIZATION" in environ:
             auth_header = environ["HTTP_AUTHORIZATION"]
@@ -56,8 +69,14 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                 token = auth_header.split(" ")[1]
 
         if not token:
-            logger.warning(f"Connection rejected for {sid}: No auth token provided")
-            # For development flexibility allow guest connections
+            qs = environ.get("QUERY_STRING", "")
+            for param in qs.split("&"):
+                if param.startswith("token="):
+                    token = param.split("=", 1)[1]
+                    break
+
+        if not token:
+            logger.warning(f"Connection for {sid}: No auth token provided initially (guest)")
             guest_id = uuid.uuid4()
             sid_to_user[sid] = guest_id
             user_to_sid[str(guest_id)] = sid
@@ -78,6 +97,22 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
             return True
 
     @server.event
+    async def authenticate(sid: str, data: dict) -> None:
+        """Explicitly re-authenticate socket with token at any time."""
+        token = data.get("token") if isinstance(data, dict) else None
+        if not token:
+            return
+        try:
+            claims = verify_token(token)
+            user_id = uuid.UUID(claims["sub"])
+            sid_to_user[sid] = user_id
+            user_to_sid[str(user_id)] = sid
+            logger.info(f"Socket {sid} authenticated as user {user_id}")
+            await server.emit("authenticated", {"user_id": str(user_id)}, to=sid)
+        except Exception as e:
+            logger.warning(f"Failed to authenticate socket {sid}: {e}")
+
+    @server.event
     async def disconnect(sid: str) -> None:
         """Handle client disconnection."""
         user_id = sid_to_user.pop(sid, None)
@@ -92,7 +127,7 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
     @server.event
     async def find_match(sid: str, data: dict) -> None:
         """User clicks 'Find Match' to enter matchmaking."""
-        user_id = sid_to_user.get(sid)
+        user_id = _resolve_user_id(sid, data)
         if not user_id:
             await server.emit("error", {"message": "Unauthorized"}, to=sid)
             return
@@ -273,7 +308,7 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
     @server.event
     async def request_practice_match(sid: str, data: dict | None = None) -> None:
         """Create a real match in DB against ArenaBot for solo practice and testing."""
-        user_id = sid_to_user.get(sid)
+        user_id = _resolve_user_id(sid, data)
         if not user_id:
             return
 
@@ -338,7 +373,7 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
     @server.event
     async def submit_solution(sid: str, data: dict) -> None:
         """Submit code for full evaluation."""
-        user_id = sid_to_user.get(sid)
+        user_id = _resolve_user_id(sid, data)
         match_id_str = data.get("match_id")
         problem_id_str = data.get("problem_id")
         code = data.get("code", "")
@@ -456,18 +491,19 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                     match = await db.get(Match, match_uuid)
                     if match and match.status != "completed":
                         now_utc = datetime.now(timezone.utc)
+                        p1_id = match.player1_id
+                        p2_id = match.player2_id
+
                         match.status = "completed"
                         match.winner_id = user_id
                         match.ended_at = now_utc
                         if match.started_at:
                             match.duration_seconds = max(1, int((now_utc - match.started_at).total_seconds()))
-                        await db.commit()
 
-                        # Update ELO ratings and win/loss stats
-                        p1 = await db.get(User, match.player1_id)
-                        p2 = await db.get(User, match.player2_id)
-                        # p2 may be None for ArenaBot matches; still update the real player
-                        winner_is_p1 = user_id == (p1.id if p1 else None)
+                        # Update ELO ratings and win/loss stats BEFORE commit to prevent MissingGreenlet
+                        p1 = await db.get(User, p1_id)
+                        p2 = await db.get(User, p2_id)
+                        winner_is_p1 = (user_id == p1_id)
                         if p1 and p2:
                             r1_new, r2_new, d1, d2 = elo_service.calculate_match_result(
                                 p1.elo_rating,
@@ -477,21 +513,21 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                             p1.elo_rating = r1_new
                             p2.elo_rating = r2_new
                         elif p1:
-                            # Bot match — only update real player's ELO loosely
                             p1.elo_rating = min(p1.elo_rating + 16, 3000)
                         elif p2:
                             p2.elo_rating = min(p2.elo_rating + 16, 3000)
-                        # Update win/loss for each real player
+
                         if p1:
                             if winner_is_p1:
                                 p1.wins += 1
-                            elif p2 or match.winner_id != p1.id:
+                            else:
                                 p1.losses += 1
                         if p2:
                             if winner_is_p1:
                                 p2.losses += 1
                             else:
                                 p2.wins += 1
+
                         await db.commit()
 
                 await server.emit("match_ended", {
@@ -503,28 +539,34 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
     @server.event
     async def forfeit(sid: str, data: dict) -> None:
         """Handle player forfeit."""
-        user_id = sid_to_user.get(sid)
-        match_id_str = data.get("match_id")
+        user_id = _resolve_user_id(sid, data)
+        match_id_str = data.get("match_id") if data else None
         if not user_id or not match_id_str:
             return
 
-        match_id = uuid.UUID(match_id_str)
+        try:
+            match_id = uuid.UUID(match_id_str)
+        except Exception:
+            return
+
         async with async_session_maker() as db:
             match = await db.get(Match, match_id)
             if match and match.status != "completed":
                 now_utc = datetime.now(timezone.utc)
+                p1_id = match.player1_id
+                p2_id = match.player2_id
+                winner_id = p2_id if p1_id == user_id else p1_id
+
                 match.status = "completed"
-                winner_id = match.player2_id if match.player1_id == user_id else match.player1_id
                 match.winner_id = winner_id
                 match.ended_at = now_utc
                 if match.started_at:
                     match.duration_seconds = max(1, int((now_utc - match.started_at).total_seconds()))
-                await db.commit()
 
-                # Update wins/losses for real players on forfeit
-                p1 = await db.get(User, match.player1_id)
-                p2 = await db.get(User, match.player2_id)
-                forfeiter_is_p1 = match.player1_id == user_id
+                # Update wins/losses for real players on forfeit BEFORE commit
+                p1 = await db.get(User, p1_id)
+                p2 = await db.get(User, p2_id)
+                forfeiter_is_p1 = (p1_id == user_id)
                 if p1:
                     if forfeiter_is_p1:
                         p1.losses += 1
@@ -535,6 +577,7 @@ def register_socket_events(server: socketio.AsyncServer) -> None:
                         p2.wins += 1
                     else:
                         p2.losses += 1
+
                 await db.commit()
 
                 room = f"match_{match_id}"

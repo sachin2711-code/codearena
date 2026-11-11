@@ -15,6 +15,7 @@ import { Profile } from './pages/Profile';
 import { Analysis } from './pages/Analysis';
 import { Terms } from './pages/Terms';
 import { Privacy } from './pages/Privacy';
+import { NotFound } from './pages/NotFound';
 import { useAuthStore } from './stores/authStore';
 
 export const App: React.FC = () => {
@@ -49,22 +50,22 @@ export const App: React.FC = () => {
               <Route path="/analysis/:matchId" element={<Analysis />} />
             </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
 
-        {/* Minimal Platform Footer */}
-        <footer className="border-t-2 border-shin-border bg-shin-panel py-4 text-xs font-mono text-shin-muted">
+        {/* Shinchan Comic Platform Footer */}
+        <footer className="border-t-[3px] border-shin-outline bg-shin-card py-4 text-xs font-mono text-shin-muted shadow-sticker">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-shin-yellow font-black">⚡</span>
-              <span className="font-bold">CodeArena © 2026 • Real-time 1v1 Algorithmic Battleground</span>
+              <span className="text-shin-yellow font-bangers text-base">⚡ CODEARENA</span>
+              <span className="font-bold text-shin-muted/80">© 2026 • Real-Time 1v1 Battleground</span>
             </div>
-            <div className="flex items-center gap-4 font-bold">
+            <div className="flex items-center gap-4 font-black">
               <a href="/terms" className="hover:text-shin-yellow transition-colors">Terms</a>
-              <span className="text-shin-border">•</span>
+              <span className="text-shin-outline font-black">•</span>
               <a href="/privacy" className="hover:text-shin-yellow transition-colors">Privacy</a>
-              <span className="text-shin-border">•</span>
+              <span className="text-shin-outline font-black">•</span>
               <a
                 href="https://github.com/sachin2711-code/codearena"
                 target="_blank"

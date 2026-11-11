@@ -46,6 +46,7 @@ class UserProfile(BaseModel):
     avatar_url: str | None = None
     total_matches: int = 0
     win_rate: float = 0.0
+    solved_problems: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}

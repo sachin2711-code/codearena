@@ -113,6 +113,7 @@ export const Battle: React.FC = () => {
         code: currentCode,
         language,
         problem_id: problem.id,
+        token: localStorage.getItem('token'),
       });
     }
   }, [currentCode, language, problem]);
@@ -126,6 +127,7 @@ export const Battle: React.FC = () => {
         problem_id: problem.id,
         code: currentCode,
         language,
+        token: localStorage.getItem('token'),
       });
     }
   }, [currentCode, language, problem, matchId]);
@@ -150,7 +152,7 @@ export const Battle: React.FC = () => {
     if (window.confirm('Forfeit this battle? It will be recorded as a loss.')) {
       const socket = socketService.getSocket();
       if (socket && matchId) {
-        socket.emit('forfeit', { match_id: matchId });
+        socket.emit('forfeit', { match_id: matchId, token: localStorage.getItem('token') });
       }
     }
   };
@@ -359,57 +361,60 @@ export const Battle: React.FC = () => {
 
       {/* Match Conclusion Dialog */}
       {showResultModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-shin-panel border-2 border-shin-yellow/30 rounded-2xl max-w-md w-full p-7 text-center space-y-5 shadow-2xl relative"
-            style={{ boxShadow: '8px 8px 0px #1a1740, 0 0 50px rgba(255,215,0,0.12)' }}>
+        <div className="fixed inset-0 z-50 bg-shin-navy/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="card-shin bg-shin-card border-[3.5px] border-shin-outline rounded-3xl max-w-md w-full p-8 text-center space-y-5 shadow-sticker-lg relative animate-shin-bounce">
             <div
-              className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center text-3xl ${
+              className={`w-20 h-20 mx-auto rounded-3xl border-[3px] border-shin-outline flex items-center justify-center text-4xl shadow-sticker ${
                 isWinner
-                  ? 'bg-shin-yellow shadow-lg shadow-shin-yellow/40 animate-shin-bounce'
+                  ? 'bg-shin-yellow text-shin-outline'
                   : isDraw
-                  ? 'bg-shin-border'
-                  : 'bg-shin-red/20 border-2 border-shin-red/40'
+                  ? 'bg-shin-blue text-shin-outline'
+                  : 'bg-shin-red text-white'
               }`}
             >
-              {isWinner ? '🏆' : isDraw ? '🤝' : '💀'}
+              {isWinner ? '🏆' : isDraw ? '🤝' : '💥'}
             </div>
 
             <div>
-              <h2 className={`text-2xl font-black tracking-tight ${isWinner ? 'text-shin-yellow' : isDraw ? 'text-shin-muted' : 'text-shin-red'}`}>
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border-[2px] border-shin-outline mb-2 shadow-sticker-sm ${
+                isWinner ? 'bg-shin-yellow text-shin-outline' : isDraw ? 'bg-shin-blue text-shin-outline' : 'bg-shin-red text-white'
+              }`}>
+                {isWinner ? 'Action Kamen Approved!' : isDraw ? 'Evenly Matched!' : 'Defeat — Try Again!'}
+              </span>
+              <h2 className={`text-4xl font-bangers tracking-wider ${isWinner ? 'text-shin-yellow' : isDraw ? 'text-shin-blue' : 'text-shin-red'}`}>
                 {isWinner ? '⚡ VICTORY!' : isDraw ? 'MATCH DRAW' : 'DEFEATED'}
               </h2>
-              <p className="text-xs text-shin-muted mt-2 font-semibold">
+              <div className="comic-bubble bg-shin-navy text-white text-xs font-comic font-bold mt-4 p-3 rounded-2xl border-[2.5px] border-shin-outline shadow-sticker-sm">
                 {isWinner
-                  ? 'All test cases passed. ELO rating updated. Nicely done!'
-                  : 'Review the editorial to master the optimal approach.'}
-              </p>
+                  ? '“Bwahaha! You conquered all test cases with style! ELO rating and win record updated!”'
+                  : '“Don’t give up! Eat some Chocobi biscuits and check the editorial below!”'}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2.5 pt-1">
+            <div className="flex flex-col gap-3 pt-2">
               {isWinner && (
                 <button
                   onClick={handleShareVictory}
-                  className="w-full py-2.5 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border-2 border-[#25D366]/40 text-[#25D366] font-black text-xs transition-all flex items-center justify-center gap-1.5"
+                  className="btn-shin-outline w-full py-3 bg-[#25D366]/20 border-[#25D366] text-[#25D366] hover:bg-[#25D366]/30 flex items-center justify-center gap-2 font-bangers text-base tracking-wide"
                 >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Share on WhatsApp</span>
+                  <Share2 className="w-4 h-4" />
+                  <span>Share Victory on WhatsApp</span>
                 </button>
               )}
 
               <button
                 onClick={() => navigate(`/analysis/${matchId}`)}
-                className="w-full py-2.5 rounded-xl bg-shin-yellow hover:bg-shin-yellow-soft text-shin-bg font-black text-sm transition-all flex items-center justify-center gap-2"
-                style={{ boxShadow: '3px 3px 0px #E8192C' }}
+                className="btn-shin-yellow w-full py-3 flex items-center justify-center gap-2 font-bangers text-lg tracking-wide shadow-sticker"
               >
-                <span>View Editorial</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <span>View Editorial & Analysis</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
 
               <button
                 onClick={() => navigate('/dashboard')}
-                className="w-full py-2 rounded-xl bg-shin-border hover:bg-shin-border/80 border-2 border-shin-border text-shin-muted hover:text-shin-white font-black text-xs transition-all"
+                className="btn-shin-outline w-full py-2.5 font-comic font-black text-xs text-shin-cream hover:text-white"
               >
-                Back to Arena
+                Return to Dashboard
               </button>
             </div>
           </div>

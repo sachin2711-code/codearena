@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&family=Comic+Neue:wght@400;700&family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,23 +6,42 @@
 
 @layer base {
   :root {
-    --font-sans: 'Nunito', 'Segoe UI', Roboto, sans-serif;
+    --font-heading: 'Bangers', cursive, sans-serif;
+    --font-comic: 'Patrick Hand', 'Comic Neue', cursive, sans-serif;
+    --font-sans: 'Nunito', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', Consolas, Monaco, monospace;
-    --shin-yellow: #FFD700;
-    --shin-red: #E8192C;
-    --shin-blue: #4FC3F7;
-    --shin-bg: #0d0b1e;
-    --shin-panel: #13112a;
-    --shin-border: #2a2550;
+
+    /* Shinchan Signature Palette */
+    --shin-yellow: #FFD93D;
+    --shin-red: #E63946;
+    --shin-blue: #8ECAE6;
+    --shin-ocean: #219EBC;
+    --shin-cream: #FFF8E7;
+    --shin-outline: #2B2D42;
+    --shin-shadow: #2B2D42;
+    --shin-navy: #0F1026;
+    --shin-card: #161836;
+    --shin-border: #353966;
+    --shin-muted: #8D99AE;
   }
 
   body {
-    background-color: var(--shin-bg);
-    color: #f0eeff;
+    background-color: var(--shin-navy);
+    color: #F8F9FA;
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-bangers {
+    font-family: var(--font-heading);
+    letter-spacing: 0.04em;
+  }
+
+  .font-comic {
+    font-family: var(--font-comic);
   }
 
   code, pre, kbd {
@@ -42,60 +61,93 @@
   }
 }
 
-/* Sinchan comic-dot background */
-.bg-grid-pattern {
-  background-size: 28px 28px;
+/* Comic Crayon / Polka-Dot Texture Background */
+.bg-doodle-pattern {
+  background-size: 32px 32px;
   background-image: 
-    radial-gradient(circle, rgba(255,215,0,0.07) 1.5px, transparent 1.5px);
+    radial-gradient(circle, rgba(255, 217, 61, 0.09) 2px, transparent 2px),
+    radial-gradient(circle, rgba(230, 57, 70, 0.06) 1.5px, transparent 1.5px);
+  background-position: 0 0, 16px 16px;
 }
 
-.bg-dot-pattern {
-  background-size: 20px 20px;
-  background-image: radial-gradient(rgba(255, 215, 0, 0.1) 1px, transparent 1px);
+.bg-crayon-grid {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(142, 202, 230, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(142, 202, 230, 0.05) 1px, transparent 1px);
 }
 
-/* Sinchan scrollbars — yellow accent */
+/* Comic UI Component Utilities */
+@layer components {
+  /* Thick Sticker Button - Yellow */
+  .btn-shin-yellow {
+    @apply bg-shin-yellow hover:bg-shin-yellow-soft active:translate-y-1 text-shin-outline font-black text-sm px-5 py-2.5 rounded-2xl border-[3px] border-shin-outline transition-all duration-150 inline-flex items-center justify-center gap-2;
+    box-shadow: 4px 4px 0px #2B2D42;
+  }
+  .btn-shin-yellow:active {
+    box-shadow: 1px 1px 0px #2B2D42;
+  }
+
+  /* Thick Sticker Button - Red (Shinchan shirt style) */
+  .btn-shin-red {
+    @apply bg-shin-red hover:bg-shin-red-soft active:translate-y-1 text-white font-black text-sm px-5 py-2.5 rounded-2xl border-[3px] border-shin-outline transition-all duration-150 inline-flex items-center justify-center gap-2;
+    box-shadow: 4px 4px 0px #2B2D42;
+  }
+  .btn-shin-red:active {
+    box-shadow: 1px 1px 0px #2B2D42;
+  }
+
+  /* Thick Sticker Button - Blue / Outline */
+  .btn-shin-outline {
+    @apply bg-shin-card hover:bg-shin-border active:translate-y-1 text-shin-blue hover:text-white font-bold text-sm px-4 py-2 rounded-2xl border-[3px] border-shin-outline transition-all duration-150 inline-flex items-center justify-center gap-2;
+    box-shadow: 3px 3px 0px #2B2D42;
+  }
+  .btn-shin-outline:active {
+    box-shadow: 1px 1px 0px #2B2D42;
+  }
+
+  /* Comic Card with Sticker Shadow */
+  .card-shin {
+    @apply bg-shin-card border-[3px] border-shin-outline rounded-3xl p-6 transition-all duration-200;
+    box-shadow: 5px 5px 0px #2B2D42;
+  }
+
+  /* Comic Input Field */
+  .input-shin {
+    @apply bg-shin-navy border-[2.5px] border-shin-outline rounded-2xl py-2.5 px-4 text-white placeholder-shin-muted font-bold focus:outline-none focus:border-shin-yellow transition-all;
+    box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Comic Speech Bubble */
+  .comic-bubble {
+    @apply relative bg-shin-yellow text-shin-outline font-black rounded-2xl p-4 border-[3px] border-shin-outline;
+    box-shadow: 4px 4px 0px #2B2D42;
+  }
+  .comic-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 24px;
+    border-width: 12px 12px 0 0;
+    border-style: solid;
+    border-color: #FFD93D transparent transparent transparent;
+  }
+}
+
+/* Comic Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
 }
-
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #0F1026;
+  border-left: 1px solid #2B2D42;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #3a3060;
+  background: #FFD93D;
   border-radius: 99px;
+  border: 1.5px solid #2B2D42;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #FFD700;
-}
-
-/* Sinchan glow utilities */
-.shin-glow-yellow {
-  box-shadow: 0 0 16px rgba(255, 215, 0, 0.35), 0 0 4px rgba(255, 215, 0, 0.2);
-}
-.shin-glow-red {
-  box-shadow: 0 0 16px rgba(232, 25, 44, 0.4), 0 0 4px rgba(232, 25, 44, 0.2);
-}
-
-/* Sinchan badge bounce animation */
-@keyframes shin-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-.shin-bounce {
-  animation: shin-bounce 1.8s ease-in-out infinite;
-}
-
-/* Comic outline utility */
-.comic-border {
-  border: 2px solid #FFD700;
-  box-shadow: 3px 3px 0px #E8192C;
-}
-.comic-border-blue {
-  border: 2px solid #4FC3F7;
-  box-shadow: 3px 3px 0px #1a1740;
+  background: #E63946;
 }

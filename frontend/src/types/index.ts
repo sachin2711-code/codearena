@@ -14,6 +14,7 @@ export interface User {
 export interface UserProfile extends User {
   total_matches: number;
   win_rate: number;
+  solved_problems?: number;
 }
 
 export interface Example {

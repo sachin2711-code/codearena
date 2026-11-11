@@ -5,11 +5,13 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
+from app.models.match import Match
+from app.models.submission import Submission
 from app.models.user import User
 from app.schemas.user import TokenResponse, UserCreate, UserProfile, UserResponse
 from app.utils.security import (
@@ -235,22 +237,72 @@ async def github_login(
 @router.get("/me", response_model=UserProfile)
 async def get_my_profile(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Return the authenticated user's detailed profile."""
-    total = current_user.wins + current_user.losses + current_user.draws
-    win_rate = (current_user.wins / total * 100.0) if total > 0 else 0.0
+    """Return the authenticated user's detailed profile with self-healing stats from DB."""
+    # 1. Total matches played by this user
+    match_filter = or_(
+        Match.player1_id == current_user.id,
+        Match.player2_id == current_user.id,
+    )
+    total_res = await db.execute(select(func.count(Match.id)).where(match_filter))
+    db_total_matches = total_res.scalar() or 0
+
+    # 2. Total completed wins
+    wins_res = await db.execute(
+        select(func.count(Match.id)).where(
+            Match.winner_id == current_user.id,
+            Match.status == "completed",
+        )
+    )
+    db_wins = wins_res.scalar() or 0
+
+    # 3. Solved problems count (distinct problems solved with accepted verdict)
+    solved_res = await db.execute(
+        select(func.count(func.distinct(Submission.problem_id))).where(
+            Submission.user_id == current_user.id,
+            Submission.verdict == "accepted",
+        )
+    )
+    db_solved = solved_res.scalar() or 0
+
+    # 4. Losses: completed matches where winner != current_user.id and winner is not null
+    losses_res = await db.execute(
+        select(func.count(Match.id)).where(
+            match_filter,
+            Match.status == "completed",
+            Match.winner_id != current_user.id,
+            Match.winner_id.isnot(None),
+        )
+    )
+    db_losses = losses_res.scalar() or 0
+
+    # Combine recorded user table stats with DB query stats to never lose past matches
+    effective_wins = max(current_user.wins, db_wins)
+    effective_losses = max(current_user.losses, db_losses)
+    effective_total = max(current_user.wins + current_user.losses + current_user.draws, db_total_matches)
+    effective_solved = max(effective_wins, db_solved)
+
+    # Self-heal user record in DB if values differ
+    if current_user.wins != effective_wins or current_user.losses != effective_losses:
+        current_user.wins = effective_wins
+        current_user.losses = effective_losses
+        await db.commit()
+
+    win_rate = (effective_wins / effective_total * 100.0) if effective_total > 0 else 0.0
 
     return UserProfile(
         id=current_user.id,
         username=current_user.username,
         email=current_user.email,
         elo_rating=current_user.elo_rating,
-        wins=current_user.wins,
-        losses=current_user.losses,
+        wins=effective_wins,
+        losses=effective_losses,
         draws=current_user.draws,
         avatar_url=current_user.avatar_url,
-        total_matches=total,
+        total_matches=effective_total,
         win_rate=round(win_rate, 1),
+        solved_problems=effective_solved,
         created_at=current_user.created_at,
     )
 

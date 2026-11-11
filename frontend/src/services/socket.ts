@@ -11,16 +11,22 @@ const WS_URL =
 
 class SocketService {
   private socket: Socket | null = null;
+  private currentToken: string = '';
 
   connect(token?: string): Socket {
     const currentToken = token || localStorage.getItem('token') || '';
+    const tokenChanged = currentToken && currentToken !== this.currentToken;
+    this.currentToken = currentToken;
 
     // If socket instance already exists, reuse it and update auth token if provided
     if (this.socket) {
-      if (currentToken && this.socket.auth && typeof this.socket.auth === 'object') {
+      if (this.socket.auth && typeof this.socket.auth === 'object') {
         (this.socket.auth as any).token = currentToken;
       }
-      if (this.socket.disconnected) {
+      if (tokenChanged && this.socket.connected) {
+        // Explicitly notify server of authenticated identity
+        this.socket.emit('authenticate', { token: currentToken });
+      } else if (this.socket.disconnected) {
         this.socket.connect();
       }
       return this.socket;
@@ -28,6 +34,7 @@ class SocketService {
 
     this.socket = io(WS_URL, {
       auth: { token: currentToken },
+      query: currentToken ? { token: currentToken } : {},
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
@@ -37,6 +44,10 @@ class SocketService {
 
     this.socket.on('connect', () => {
       console.log('⚡ Connected to CodeArena Socket Server:', this.socket?.id);
+      const activeToken = this.currentToken || localStorage.getItem('token') || '';
+      if (activeToken) {
+        this.socket?.emit('authenticate', { token: activeToken });
+      }
     });
 
     this.socket.on('connect_error', (error) => {
