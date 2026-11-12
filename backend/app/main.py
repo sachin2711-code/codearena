@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
+from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import engine, async_session_maker, Base
@@ -94,6 +95,20 @@ async def lifespan(app: FastAPI):
     # Create DB tables if they don't exist
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Self-healing migration: add new campus columns if they don't exist yet
+        # (create_all only creates NEW tables, not new columns on existing tables)
+        campus_migrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS branch VARCHAR(50) DEFAULT 'CSE'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS graduation_year VARCHAR(20) DEFAULT '3rd Year'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(100) DEFAULT 'Campus'",
+        ]
+        for sql in campus_migrations:
+            try:
+                await conn.execute(text(sql))
+                logger.info(f"Migration OK: {sql[:60]}...")
+            except Exception as exc:
+                logger.warning(f"Migration skipped (may already exist): {exc}")
 
     # Seed default problems
     try:
