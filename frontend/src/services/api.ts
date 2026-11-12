@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LeaderboardEntry, Match, Problem, ProblemListItem, UserProfile } from '../types';
+import { DepartmentStanding, LeaderboardEntry, Match, Problem, ProblemListItem, UserProfile } from '../types';
 
 const RENDER_BACKEND_URL = 'https://codearena-cca4.onrender.com';
 
@@ -43,6 +43,10 @@ export const authApi = {
     const res = await api.get('/auth/me');
     return res.data;
   },
+  updateProfile: async (data: { branch?: string; graduation_year?: string; college_name?: string }): Promise<UserProfile> => {
+    const res = await api.put('/auth/profile', data);
+    return res.data;
+  },
 };
 
 export const problemsApi = {
@@ -80,10 +84,19 @@ export const matchesApi = {
 };
 
 export const leaderboardApi = {
-  get: async (page = 1, pageSize = 25) => {
-    const res = await api.get<{ leaderboard: LeaderboardEntry[]; page: number }>('/leaderboard', {
-      params: { page, page_size: pageSize },
+  get: async (page = 1, pageSize = 25, branch?: string, graduationYear?: string) => {
+    const res = await api.get<{ leaderboard: LeaderboardEntry[]; page: number; total?: number }>('/leaderboard', {
+      params: {
+        page,
+        page_size: pageSize,
+        branch: branch && branch !== 'ALL' ? branch : undefined,
+        graduation_year: graduationYear && graduationYear !== 'ALL' ? graduationYear : undefined,
+      },
     });
+    return res.data;
+  },
+  getDepartments: async (): Promise<DepartmentStanding[]> => {
+    const res = await api.get<DepartmentStanding[]>('/leaderboard/departments');
     return res.data;
   },
   getTop: async (limit = 10): Promise<LeaderboardEntry[]> => {

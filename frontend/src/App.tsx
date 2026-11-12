@@ -13,6 +13,7 @@ import { Leaderboard } from './pages/Leaderboard';
 import { MatchHistory } from './pages/MatchHistory';
 import { Profile } from './pages/Profile';
 import { Analysis } from './pages/Analysis';
+import { Spectate } from './pages/Spectate';
 import { Terms } from './pages/Terms';
 import { Privacy } from './pages/Privacy';
 import { NotFound } from './pages/NotFound';
@@ -35,6 +36,7 @@ export const App: React.FC = () => {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/spectate/:matchId" element={<Spectate />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
 

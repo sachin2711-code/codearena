@@ -71,6 +71,22 @@ async def seed_default_problems():
         logger.info("Default problems seeded successfully!")
 
 
+async def keep_alive_task():
+    """Background task to ping self every 9 minutes on Render to prevent free-tier cold starts."""
+    import httpx, os
+    render_url = os.environ.get("RENDER_EXTERNAL_URL") or "https://codearena-cca4.onrender.com"
+    health_url = f"{render_url.rstrip('/')}/health"
+    await asyncio.sleep(60)  # Wait 1 minute after boot
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(health_url)
+                logger.info(f"Self keep-alive ping status: {res.status_code}")
+        except Exception as exc:
+            logger.debug(f"Self keep-alive error: {exc}")
+        await asyncio.sleep(540)  # 9 minutes
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan context manager."""
@@ -85,8 +101,12 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"Problem seeding warning: {exc}")
 
+    # Launch background keep-alive to eliminate cold starts
+    keep_alive = asyncio.create_task(keep_alive_task())
+
     yield
 
+    keep_alive.cancel()
     logger.info("Shutting down CodeArena...")
     await engine.dispose()
 

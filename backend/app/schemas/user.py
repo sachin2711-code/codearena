@@ -27,6 +27,9 @@ class UserResponse(BaseModel):
     losses: int
     draws: int
     avatar_url: str | None = None
+    branch: str | None = "CSE"
+    graduation_year: str | None = "3rd Year"
+    college_name: str | None = "Campus"
     is_active: bool
     created_at: datetime
 
@@ -44,12 +47,33 @@ class UserProfile(BaseModel):
     losses: int
     draws: int
     avatar_url: str | None = None
+    branch: str | None = "CSE"
+    graduation_year: str | None = "3rd Year"
+    college_name: str | None = "Campus"
     total_matches: int = 0
     win_rate: float = 0.0
     solved_problems: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserUpdateProfile(BaseModel):
+    """Schema for updating user campus details."""
+
+    branch: str | None = None
+    graduation_year: str | None = None
+    college_name: str | None = None
+
+
+class DepartmentStanding(BaseModel):
+    """Department/Branch ranking aggregation."""
+
+    branch: str
+    student_count: int
+    avg_elo: int
+    total_wins: int
+    top_player: str | None = None
 
 
 class TokenResponse(BaseModel):

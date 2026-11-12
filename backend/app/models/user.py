@@ -29,6 +29,15 @@ class User(BaseModel):
     avatar_url: Mapped[str | None] = mapped_column(
         String(512), nullable=True
     )
+    branch: Mapped[str | None] = mapped_column(
+        String(50), default="CSE", nullable=True, index=True
+    )
+    graduation_year: Mapped[str | None] = mapped_column(
+        String(20), default="3rd Year", nullable=True
+    )
+    college_name: Mapped[str | None] = mapped_column(
+        String(100), default="Campus", nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False
     )

@@ -7,6 +7,9 @@ export interface User {
   losses: number;
   draws: number;
   avatar_url?: string;
+  branch?: string;
+  graduation_year?: string;
+  college_name?: string;
   is_active?: boolean;
   created_at?: string;
 }
@@ -15,6 +18,14 @@ export interface UserProfile extends User {
   total_matches: number;
   win_rate: number;
   solved_problems?: number;
+}
+
+export interface DepartmentStanding {
+  branch: string;
+  student_count: number;
+  avg_elo: number;
+  total_wins: number;
+  top_player?: string | null;
 }
 
 export interface Example {

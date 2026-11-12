@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models.match import Match
 from app.models.submission import Submission
 from app.models.user import User
-from app.schemas.user import TokenResponse, UserCreate, UserProfile, UserResponse
+from app.schemas.user import TokenResponse, UserCreate, UserProfile, UserResponse, UserUpdateProfile
 from app.utils.security import (
     create_access_token,
     create_refresh_token,
@@ -300,11 +300,33 @@ async def get_my_profile(
         losses=effective_losses,
         draws=current_user.draws,
         avatar_url=current_user.avatar_url,
+        branch=current_user.branch or "CSE",
+        graduation_year=current_user.graduation_year or "3rd Year",
+        college_name=current_user.college_name or "Campus",
         total_matches=effective_total,
         win_rate=round(win_rate, 1),
         solved_problems=effective_solved,
         created_at=current_user.created_at,
     )
+
+
+@router.put("/profile", response_model=UserProfile)
+async def update_my_profile(
+    payload: UserUpdateProfile,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Update user campus details: branch, year, college."""
+    if payload.branch is not None:
+        current_user.branch = payload.branch.strip()
+    if payload.graduation_year is not None:
+        current_user.graduation_year = payload.graduation_year.strip()
+    if payload.college_name is not None:
+        current_user.college_name = payload.college_name.strip()
+
+    await db.commit()
+    await db.refresh(current_user)
+    return await get_my_profile(current_user=current_user, db=db)
 
 
 @router.post("/refresh", response_model=TokenResponse)

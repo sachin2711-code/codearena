@@ -35,13 +35,20 @@ if db_url.startswith("postgresql"):
 elif db_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
-engine = create_async_engine(
-    db_url,
-    echo=False,
-    future=True,
-    pool_pre_ping=not db_url.startswith("sqlite"),
-    connect_args=connect_args,
-)
+engine_kwargs = {
+    "echo": False,
+    "future": True,
+    "connect_args": connect_args,
+}
+if not db_url.startswith("sqlite"):
+    engine_kwargs.update({
+        "pool_size": 20,
+        "max_overflow": 10,
+        "pool_recycle": 300,
+        "pool_pre_ping": True,
+    })
+
+engine = create_async_engine(db_url, **engine_kwargs)
 
 async_session_maker = async_sessionmaker(
     engine,

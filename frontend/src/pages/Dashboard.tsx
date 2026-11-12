@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Swords, Trophy, Activity, Target, Clock, ArrowRight, ChevronRight, ExternalLink, Star, Zap, Bot } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
-import { matchesApi } from '../services/api';
+import { authApi, matchesApi } from '../services/api';
 import { Match } from '../types';
 import { ThemedBackground } from '../components/ThemedBackground';
 
@@ -11,6 +11,10 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editBranch, setEditBranch] = useState(user?.branch || 'CSE');
+  const [editYear, setEditYear] = useState(user?.graduation_year || '3rd Year');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     const loadMatches = async () => {
@@ -47,6 +51,22 @@ export const Dashboard: React.FC = () => {
 
   const userElo = user?.elo_rating || 1200;
 
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      await authApi.updateProfile({
+        branch: editBranch,
+        graduation_year: editYear,
+      });
+      await fetchUser();
+      setShowEditModal(false);
+    } catch (err) {
+      console.error('Failed to update campus profile', err);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   return (
     <ThemedBackground variant="dashboard">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -66,7 +86,24 @@ export const Dashboard: React.FC = () => {
                   {getTierName(userElo)}
                 </span>
               </div>
-              <p className="text-xs font-mono text-shin-muted mt-1">{user?.email}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5 font-comic">
+                <span className="px-2.5 py-0.5 rounded-lg text-xs font-bangers bg-shin-navy text-shin-yellow border border-shin-outline shadow-sticker-sm">
+                  {user?.branch || 'CSE'}
+                </span>
+                <span className="text-xs font-bold text-shin-cream">
+                  {user?.graduation_year || '3rd Year'}
+                </span>
+                <button
+                  onClick={() => {
+                    setEditBranch(user?.branch || 'CSE');
+                    setEditYear(user?.graduation_year || '3rd Year');
+                    setShowEditModal(true);
+                  }}
+                  className="text-[11px] font-black text-shin-blue hover:text-white underline ml-1 cursor-pointer"
+                >
+                  Change Branch
+                </button>
+              </div>
             </div>
           </div>
 
@@ -218,6 +255,70 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
+        {/* Edit Campus Profile Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 bg-shin-navy/85 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="card-shin bg-shin-card border-[3px] border-shin-outline rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-sticker-lg animate-shin-bounce">
+              <div className="text-center space-y-1">
+                <span className="text-3xl">🎒</span>
+                <h3 className="text-2xl font-bangers text-white tracking-wide">Campus Identity</h3>
+                <p className="text-xs text-shin-cream font-comic font-bold">
+                  Pick your branch & academic year for department standings
+                </p>
+              </div>
+
+              <div className="space-y-3 font-comic text-xs">
+                <div>
+                  <label className="block text-shin-yellow font-black mb-1">Department / Branch</label>
+                  <select
+                    value={editBranch}
+                    onChange={(e) => setEditBranch(e.target.value)}
+                    className="w-full input-shin text-sm font-bangers"
+                  >
+                    <option value="CSE">Computer Science (CSE)</option>
+                    <option value="IT">Information Technology (IT)</option>
+                    <option value="AIML">AI & Machine Learning (AIML)</option>
+                    <option value="ECE">Electronics & Comm (ECE)</option>
+                    <option value="MECH">Mechanical Engineering (MECH)</option>
+                    <option value="CIVIL">Civil Engineering (CIVIL)</option>
+                    <option value="EE">Electrical Engineering (EE)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-shin-yellow font-black mb-1">Year of Study</label>
+                  <select
+                    value={editYear}
+                    onChange={(e) => setEditYear(e.target.value)}
+                    className="w-full input-shin text-sm font-bangers"
+                  >
+                    <option value="1st Year">1st Year (Freshman)</option>
+                    <option value="2nd Year">2nd Year (Sophomore)</option>
+                    <option value="3rd Year">3rd Year (Junior)</option>
+                    <option value="4th Year">4th Year (Senior / Final)</option>
+                    <option value="Alumni">Alumni</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="btn-shin-outline flex-1 py-2 text-xs font-bangers"
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile}
+                  className="btn-shin-yellow flex-1 py-2 text-xs font-bangers shadow-sticker"
+                >
+                  {isSavingProfile ? 'SAVING...' : 'SAVE BATCH'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ThemedBackground>
   );

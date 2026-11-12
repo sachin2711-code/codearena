@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Send, Flag, CheckCircle2, XCircle, AlertCircle, Trophy, Terminal, RotateCcw, ArrowRight, Share2 } from 'lucide-react';
+import { Play, Send, Flag, CheckCircle2, XCircle, AlertCircle, Trophy, Terminal, RotateCcw, ArrowRight, Share2, ExternalLink } from 'lucide-react';
 import { ProblemPanel } from '../components/ProblemPanel';
 import { CodeEditor } from '../components/CodeEditor';
 import { Timer } from '../components/Timer';
@@ -166,7 +166,12 @@ export const Battle: React.FC = () => {
   };
 
   const handleShareVictory = () => {
-    const text = encodeURIComponent(`🏆 I just won a 1v1 live coding battle on CodeArena solving "${problem?.title}"! Think you can beat me? Challenge me: ${window.location.origin}/duel`);
+    const branchTag = user?.branch ? `[${user.branch}] ` : '';
+    const text = encodeURIComponent(
+      `⚡ ${branchTag}${user?.username || 'I'} just won a 1v1 live coding clash on CodeArena solving "${problem?.title}"!\n\n` +
+      `🏆 ELO Rating: ${user?.elo_rating || 1200} (+32)\n` +
+      `🔥 Think you or your branch can beat me? Challenge me now:\n${window.location.origin}/duel`
+    );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
@@ -408,6 +413,14 @@ export const Battle: React.FC = () => {
               >
                 <span>View Editorial & Analysis</span>
                 <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => window.open(`/spectate/${matchId}`, '_blank')}
+                className="btn-shin-outline w-full py-2.5 font-bangers text-sm text-shin-yellow hover:text-white flex items-center justify-center gap-2"
+              >
+                <span>Open Spectator / Projector View</span>
+                <ExternalLink className="w-4 h-4" />
               </button>
 
               <button
