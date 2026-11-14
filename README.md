@@ -93,6 +93,16 @@ After each duel, the platform parses both players' code and generates a technica
 - Identifies inefficiencies (e.g. repeated string concatenation vs list buffer).
 - Provides a clean, syntax-highlighted optimal reference implementation.
 
+### 5. Campus Branch Rivalry Aggregator
+Designed for intra-campus competitive dynamics (e.g., CSE vs ECE vs MECH):
+- Real-time SQL window aggregation tracking aggregate departmental ELO, total duels won, and win-rate percentages.
+- Dynamic filtering by graduation year and academic department for localized leaderboards.
+
+### 6. Real-Time Spectator & Auditorium Projector Mode
+Built for live campus hackathons and finals duels:
+- Dedicated `/spectate/:matchId` low-latency broadcast view designed for 1080p/4K auditorium projectors.
+- Socket rooms broadcast dual progress bars, keystroke telemetry, and instant win banners without exposing private participant sessions.
+
 ---
 
 ## 🛠️ Tech Stack
